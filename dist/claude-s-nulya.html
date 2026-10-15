@@ -1,0 +1,1420 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Claude с нуля</title>
+<meta name="description" content="Интерактивный курс по Claude для тех, кто никогда не пользовался нейросетями">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Макет: рабочая тетрадь — слева оглавление с прогрессом, справа страница урока; на телефоне оглавление выезжает */
+:root{
+  --paper:#F6F7FA; --sheet:#FFFFFF; --ink:#151A2E; --muted:#5A6079; --line:#DCE0EA;
+  --accent:#2C47D1; --accent-ink:#FFFFFF; --accent-soft:#E7ECFF;
+  --mark:#FFE47A; --mark-ink:#151A2E; --ok:#17855A; --ok-soft:#DFF3EA; --bad:#B4372F; --bad-soft:#FBE7E5;
+  --f-display:"Unbounded","Arial Black",system-ui,sans-serif;
+  --f-body:"Golos Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0F1220; --sheet:#161A2B; --ink:#E7E9F3; --muted:#9AA0BA; --line:#272C44;
+  --accent:#8FA2FF; --accent-ink:#0F1220; --accent-soft:#1E2548;
+  --mark:#5C4E10; --mark-ink:#FFF3C2; --ok:#5CCB98; --ok-soft:#14302A; --bad:#F08A80; --bad-soft:#3A1C1B; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0F1220; --sheet:#161A2B; --ink:#E7E9F3; --muted:#9AA0BA; --line:#272C44;
+  --accent:#8FA2FF; --accent-ink:#0F1220; --accent-soft:#1E2548;
+  --mark:#5C4E10; --mark-ink:#FFF3C2; --ok:#5CCB98; --ok-soft:#14302A; --bad:#F08A80; --bad-soft:#3A1C1B; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font:16px/1.6 var(--f-body);margin:0}
+a{color:var(--accent)}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+.app{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:100%}
+/* ---- оглавление ---- */
+.side{background:var(--sheet);border-right:1px solid var(--line);position:sticky;top:0;height:100vh;overflow-y:auto;padding-block:20px 40px;padding-inline:18px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);margin-bottom:18px}
+.brand .logo{width:34px;height:34px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:700 15px var(--f-display)}
+.brand b{font:700 17px/1.1 var(--f-display);letter-spacing:-.01em}
+.brand small{display:block;color:var(--muted);font-size:12px}
+.overall{font-size:13px;color:var(--muted);margin-bottom:16px}
+.bar{height:6px;background:var(--line);border-radius:6px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--ok);width:0;transition:width .3s}
+.nav-top{display:grid;gap:2px;margin-bottom:14px}
+.nav-link{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;color:var(--ink);text-decoration:none;font-size:14px}
+.nav-link:hover{background:var(--accent-soft)}
+.nav-link.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.mod{border-top:1px solid var(--line);padding-block:10px}
+.mod-h{display:flex;align-items:flex-start;gap:10px;width:100%;background:none;border:0;color:var(--ink);text-align:left;padding:4px 2px}
+.mod-n{font:700 12px var(--f-display);color:var(--accent);min-width:22px;padding-top:3px}
+.mod-t{font-weight:600;font-size:14px;line-height:1.35;flex:1}
+.mod-p{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;padding-top:3px}
+.mod ul{list-style:none;margin:6px 0 0;padding:0 0 0 32px;display:grid;gap:1px}
+.mod ul[hidden]{display:none}
+.mod li a{display:flex;gap:8px;align-items:flex-start;padding:5px 8px;border-radius:6px;font-size:13.5px;color:var(--muted);text-decoration:none;line-height:1.35}
+.mod li a:hover{color:var(--ink);background:var(--accent-soft)}
+.mod li a.on{color:var(--accent);background:var(--accent-soft);font-weight:600}
+.dot{flex:none;width:14px;height:14px;border-radius:50%;border:1.5px solid var(--line);margin-top:2px;display:grid;place-items:center}
+.dot.done{background:var(--ok);border-color:var(--ok)}
+.dot.done::after{content:"";width:6px;height:3px;border:2px solid #fff;border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+
+/* ---- мобильная шапка ---- */
+.topbar{display:none}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr}
+  .side{position:fixed;inset:0 auto 0 0;width:min(320px,88vw);z-index:30;transform:translateX(-100%);transition:transform .25s;padding-top:calc(20px + env(safe-area-inset-top,0px));box-shadow:0 0 40px rgba(0,0,0,.25)}
+  .side.open{transform:none}
+  .scrim{position:fixed;inset:0;background:rgba(10,12,25,.45);z-index:25}
+  .topbar{display:flex;align-items:center;gap:12px;position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--sheet);border-bottom:1px solid var(--line);padding:10px 16px}
+  .topbar b{font:700 15px var(--f-display)}
+  .menu-btn{background:var(--accent-soft);color:var(--accent);border:0;border-radius:8px;padding:6px 12px;font-weight:600}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---- страница ---- */
+main{min-width:0;padding-block:40px 80px;padding-inline:clamp(16px,5vw,64px)}
+.page{max-width:760px;margin:0 auto}
+.crumb{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-bottom:10px}
+.tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;letter-spacing:.02em}
+.tag.free{background:var(--ok-soft);color:var(--ok)}
+.tag.paid{background:var(--accent-soft);color:var(--accent)}
+.tag.mixed{background:var(--mark);color:var(--mark-ink)}
+h1{font:700 clamp(26px,4.2vw,38px)/1.15 var(--f-display);letter-spacing:-.02em;margin:0 0 18px;text-wrap:balance}
+h2{font:700 22px/1.25 var(--f-display);letter-spacing:-.01em;margin:40px 0 14px;text-wrap:balance}
+h3{font-size:18px;font-weight:600;margin:28px 0 8px}
+p,li{max-width:68ch}
+ul,ol{padding-left:22px}
+li{margin:6px 0}
+mark{background:var(--mark);color:var(--mark-ink);padding:0 3px;border-radius:3px}
+.note{font-size:14px;color:var(--muted);border-left:3px solid var(--line);padding-left:12px}
+.key{background:var(--accent-soft);border-radius:var(--r);padding:14px 18px;margin:22px 0}
+.tbl-wrap{overflow-x:auto;margin:16px 0}
+.tbl{border-collapse:collapse;width:100%;font-size:15px;min-width:460px}
+.tbl th,.tbl td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.compare{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:14px 0}
+.compare>div{border-radius:var(--r);padding:14px 16px;font-size:15px}
+.compare .bad{background:var(--bad-soft)}
+.compare .good{background:var(--ok-soft)}
+.lbl{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.bad .lbl{color:var(--bad)} .good .lbl{color:var(--ok)}
+pre.code{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;overflow-x:auto;font:13.5px/1.6 var(--f-mono);white-space:pre}
+
+/* блоки урока */
+.block{margin-top:36px}
+.block-h{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.uses{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.use{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;font-size:14.5px;line-height:1.5}
+.use b{display:block;font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.prompt{position:relative;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px 14px;margin-bottom:10px}
+.prompt .who{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.prompt p{margin:0;font:14px/1.6 var(--f-mono);white-space:pre-wrap;max-width:none}
+.copy{position:absolute;top:10px;right:10px;background:var(--accent-soft);color:var(--accent);border:0;border-radius:6px;padding:4px 10px;font-size:12.5px;font-weight:600}
+.copy.done{background:var(--ok-soft);color:var(--ok)}
+.task{background:var(--mark);color:var(--mark-ink);border-radius:var(--r);padding:16px 18px}
+.task b{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.done-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;border-top:1px solid var(--line);margin-top:40px;padding-top:20px}
+.btn{border:0;border-radius:8px;padding:10px 18px;font-weight:600;font-size:15px;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:var(--accent-soft);color:var(--accent)}
+.btn.ok{background:var(--ok);color:#fff}
+.pager{display:flex;justify-content:space-between;gap:12px;margin-top:20px;flex-wrap:wrap}
+.pager a{flex:1 1 220px;border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;text-decoration:none;color:var(--ink);background:var(--sheet);min-width:0}
+.pager a small{display:block;color:var(--muted);font-size:12px}
+.pager a.next{text-align:right}
+
+/* конструктор */
+.builder{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-top:20px;display:grid;gap:12px}
+.builder label{font-size:13px;font-weight:600;display:grid;gap:4px}
+.builder label span{font-weight:400;color:var(--muted);font-size:12.5px}
+.builder input,.builder textarea,.search{font:inherit;font-size:15px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);width:100%}
+.builder textarea{min-height:64px;resize:vertical}
+.out{background:var(--paper);border:1px dashed var(--accent);border-radius:8px;padding:12px 14px;font:14px/1.6 var(--f-mono);white-space:pre-wrap;min-height:60px}
+.quality{font-size:13px;color:var(--muted)}
+
+/* тест */
+.q{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:14px}
+.q h3{margin:0 0 12px;font-size:17px}
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:10px 14px;color:var(--ink);font-size:15px}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt.right{background:var(--ok-soft);border-color:var(--ok)}
+.opt.wrong{background:var(--bad-soft);border-color:var(--bad)}
+.opt:disabled{cursor:default}
+.expl{font-size:14px;margin-top:10px;color:var(--muted)}
+.score{font:700 20px var(--f-display);margin:20px 0}
+
+/* главная */
+.hero{padding-block:8px 8px}
+.hero .eyebrow{font-size:13px;font-weight:600;color:var(--accent);letter-spacing:.06em;text-transform:uppercase}
+.hero h1{font-size:clamp(34px,6vw,56px);margin:10px 0 16px}
+.hero h1 em{font-style:normal;background:linear-gradient(transparent 62%,var(--mark) 62%)}
+.lead{font-size:18px;color:var(--muted);max-width:60ch}
+.facts{display:flex;flex-wrap:wrap;gap:8px 22px;margin:22px 0;font-size:14px;color:var(--muted)}
+.facts b{color:var(--ink);font:700 18px var(--f-display);margin-right:4px}
+.grid-mods{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:16px}
+.card{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:16px;text-decoration:none;color:var(--ink);display:grid;gap:6px;align-content:start}
+.card:hover{border-color:var(--accent)}
+.card .n{font:700 12px var(--f-display);color:var(--accent)}
+.card .t{font-weight:600;line-height:1.35}
+.card .w{font-size:12.5px;color:var(--muted)}
+.card .bar{margin-top:6px}
+.steps{display:grid;gap:10px;counter-reset:s;padding:0;list-style:none}
+.steps li{counter-increment:s;display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start;max-width:none}
+.steps li::before{content:counter(s);font:700 14px var(--f-display);width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center}
+
+/* план */
+.week{display:grid;grid-template-columns:76px 1fr auto;gap:14px;align-items:center;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-bottom:10px}
+.week .wn{font:700 13px var(--f-display);color:var(--accent)}
+.week .wt{font-weight:600}
+.week .wd{font-size:14px;color:var(--muted)}
+.week .wl{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.week .wl a{font-size:12.5px;background:var(--accent-soft);color:var(--accent);text-decoration:none;padding:2px 8px;border-radius:999px}
+.week .wp{font:600 13px var(--f-body);color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+@media (max-width:560px){.week{grid-template-columns:1fr}.week .wp{text-align:left}}
+
+/* словарь */
+.gl{display:grid;gap:0}
+.gl div{display:grid;grid-template-columns:200px 1fr;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)}
+.gl dt{font-weight:600}
+.gl dd{margin:0;color:var(--muted)}
+@media (max-width:560px){.gl div{grid-template-columns:1fr;gap:2px}}
+.foot{margin-top:60px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
+.reset{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:13px;padding:0}
+</style>
+<style>
+/* ---- об авторе ---- */
+.author-head{display:flex;gap:24px;align-items:center;flex-wrap:wrap;margin-bottom:24px}
+.author-head>div:last-child{min-width:0;flex:1 1 280px}
+.portrait{width:150px;height:150px;border-radius:50%;overflow:hidden;flex:none;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:700 56px var(--f-display);box-shadow:0 0 0 6px var(--accent-soft)}
+.portrait img{width:100%;height:100%;object-fit:cover;display:block}
+.portrait.sm{width:56px;height:56px;font-size:22px;box-shadow:0 0 0 4px var(--accent-soft)}
+.since{font-size:14px;color:var(--muted);margin:10px 0 0}
+.ai-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.chips{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:8px}
+.chips li{margin:0;background:var(--sheet);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14.5px;font-weight:500}
+.author-strip{display:flex;gap:16px;align-items:center;background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:14px 18px;text-decoration:none;color:var(--ink);margin-top:28px}
+.author-strip:hover{border-color:var(--accent)}
+.author-strip>span:last-child{display:grid;gap:2px;min-width:0}
+.author-strip small{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.author-strip b{font:700 16px var(--f-display)}
+.author-strip span span{font-size:14px;color:var(--muted)}
+</style>
+<style>
+/* ---- схема интерфейса Claude (урок 0.2) ---- */
+:root{--ui-bg:#FAF9F5;--ui-side:#F0EEE6;--ui-ink:#2B2A26;--ui-mut:#7A776D;--ui-line:#E2DFD4;--ui-brand:#C96442;--ui-card:#FFFFFF}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ui-bg:#262624;--ui-side:#1F1E1C;--ui-ink:#ECEAE3;--ui-mut:#A19E94;--ui-line:#3A3935;--ui-brand:#D97757;--ui-card:#30302D}}
+:root[data-theme="dark"]{--ui-bg:#262624;--ui-side:#1F1E1C;--ui-ink:#ECEAE3;--ui-mut:#A19E94;--ui-line:#3A3935;--ui-brand:#D97757;--ui-card:#30302D}
+.ui-fig{margin:18px 0 8px}
+.ui-scroll{overflow-x:auto;padding:12px 4px 4px}
+.ui{min-width:600px;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(20,25,50,.12);background:var(--ui-bg);color:var(--ui-ink);font:13px/1.4 var(--f-body)}
+.ui-bar{display:flex;gap:6px;align-items:center;padding:8px 12px;background:var(--ui-side);border-bottom:1px solid var(--ui-line)}
+.ui-bar i{width:10px;height:10px;border-radius:50%;background:var(--ui-line)}
+.ui-bar span{margin-left:10px;background:var(--ui-bg);border-radius:6px;padding:2px 12px;color:var(--ui-mut);font-size:12px}
+.ui-body{display:grid;grid-template-columns:200px 1fr;min-height:330px}
+.ui-side{background:var(--ui-side);border-right:1px solid var(--ui-line);padding:14px 10px;display:flex;flex-direction:column;gap:2px}
+.ui-logo{font:600 17px Georgia,serif;margin:0 6px 12px;color:var(--ui-ink)}
+.ui-item,.ui-cap,.ui-user{position:relative;padding:6px 8px;border-radius:7px}
+.ui-new{background:var(--ui-card);border:1px solid var(--ui-line);font-weight:600;margin-bottom:4px}
+.ui-cap{font-size:11px;color:var(--ui-mut);margin-top:10px;text-transform:uppercase;letter-spacing:.06em}
+.ui-dim{color:var(--ui-mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ui-user{margin-top:auto;display:flex;align-items:center;gap:8px;border-top:1px solid var(--ui-line);border-radius:0;padding-top:10px}
+.ui-ava{width:24px;height:24px;border-radius:50%;background:var(--ui-brand);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:600}
+.ui-main{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px}
+.ui-hello{font:400 26px Georgia,serif;color:var(--ui-ink)}
+.ui-input{position:relative;width:min(440px,100%);background:var(--ui-card);border:1px solid var(--ui-line);border-radius:16px;padding:14px 14px 10px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.ui-ph{position:relative;color:var(--ui-mut);font-size:14px;margin-bottom:22px}
+.ui-row{display:flex;align-items:center;gap:8px}
+.ui-btn,.ui-model{position:relative;border:1px solid var(--ui-line);border-radius:8px;padding:3px 10px;color:var(--ui-ink)}
+.ui-model{margin-left:auto;border-color:transparent;color:var(--ui-mut)}
+.ui-send{width:28px;height:28px;border-radius:8px;background:var(--ui-brand);color:#fff;display:grid;place-items:center;font-weight:700}
+.ui-chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.ui-chips span{border:1px solid var(--ui-line);border-radius:999px;padding:4px 12px;color:var(--ui-mut);font-size:12px}
+.pin{position:absolute;top:-9px;right:-9px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font:700 11px/22px var(--f-display);text-align:center;box-shadow:0 0 0 3px var(--paper);z-index:2}
+.ui-cap .pin{top:2px;right:4px}
+.ui-user .pin{top:4px;right:4px}
+.ui-fig figcaption{font-size:13px;color:var(--muted);margin-top:8px;max-width:68ch}
+.ui-legend{list-style:none;counter-reset:u;padding:0;display:grid;gap:8px;margin:16px 0}
+.ui-legend li{counter-increment:u;display:grid;grid-template-columns:26px 1fr;gap:10px;margin:0;max-width:none}
+.ui-legend li::before{content:counter(u);width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font:700 11px/22px var(--f-display);text-align:center;margin-top:2px}
+</style>
+<style>.ui-btn .pin{right:-24px;top:-12px}.ui-user .pin{right:-4px;top:-10px}
+@media (max-width:640px){.ui-fig figcaption::before{content:"Схему можно прокрутить вбок. ";font-weight:600}}</style>
+<style>
+/* расшифровка схемы: текст в одну строку на всю ширину, номер слева */
+.ui-legend li{display:block;position:relative;padding-left:34px}
+.ui-legend li::before{position:absolute;left:0;top:1px;margin-top:0}
+</style>
+</head><body>
+<div class="app">
+  <aside class="side" id="side" aria-label="Оглавление курса"></aside>
+  <div class="scrim" id="scrim" hidden></div>
+  <div style="min-width:0">
+    <header class="topbar"><button class="menu-btn" id="menu" aria-label="Открыть оглавление">☰ Уроки</button><b>Claude с нуля</b></header>
+    <main><article class="page" id="page"></article></main>
+  </div>
+</div>
+<script>
+// ===== Контент курса «Claude с нуля» (часть 1: модули 0–3) =====
+// Структура: модуль → уроки → тест. Каждый урок: текст, где пригодится, промпты для копирования, задание.
+// tier: 'free' — доступно на бесплатном тарифе; 'paid' — нужен платный тариф; 'mixed' — частично.
+
+const COURSE = [];
+
+COURSE.push({
+  id: 'm0', num: 0, week: 'Неделя 1', title: 'Старт: первый разговор с нейросетью',
+  goal: 'Понять, что такое Claude, завести аккаунт и научиться формулировать просьбы так, чтобы получать полезный результат с первого раза.',
+  lessons: [
+    {
+      id: 'm0l1', t: 'Что такое Claude и чем он полезен', min: 7, tier: 'free',
+      body: `
+<p>Claude — это нейросеть, а проще говоря, умный собеседник в окне чата. Её создала американская компания Anthropic. Вы пишете обычным языком, как писали бы коллеге или знакомому эксперту, и Claude отвечает так же: связным текстом, таблицей, планом, письмом, расчётом.</p>
+<p>Удобнее всего представлять Claude как <mark>очень начитанного помощника, который работает с вами первый день</mark>. Он знает много: от кулинарии до налогового кодекса, от английской грамматики до программирования. Но он не знает вас, вашу ситуацию и ваши цели, пока вы о них не расскажете. Поэтому качество ответа почти всегда зависит от того, насколько понятно вы объяснили задачу.</p>
+<h3>Что Claude делает хорошо</h3>
+<ul>
+<li><b>Пишет и редактирует.</b> Письма, поздравления, объявления, резюме, отчёты, посты для соцсетей. Может сделать текст короче, вежливее, убедительнее или проще.</li>
+<li><b>Объясняет сложное простыми словами.</b> Договор, медицинский термин, школьную тему по физике, устройство кредита.</li>
+<li><b>Помогает думать.</b> Разложит решение на «за» и «против», предложит варианты, составит план.</li>
+<li><b>Работает с файлами.</b> Прочитает PDF, таблицу, фотографию документа и ответит на вопросы по ним.</li>
+<li><b>Создаёт готовые вещи.</b> Документы, таблицы, презентации, простые сайты и калькуляторы, которые можно сразу использовать.</li>
+<li><b>Переводит</b> на десятки языков с сохранением стиля.</li>
+</ul>
+<h3>Чего от Claude ждать не стоит</h3>
+<ul>
+<li>Он может <b>ошибаться и звучать уверенно</b>. Важные факты, цифры и даты нужно проверять.</li>
+<li>Он не заменяет врача, юриста или финансового консультанта. Он помогает подготовиться к разговору с ними и понять, что спросить.</li>
+<li>Без включённого поиска его знания ограничены датой обучения. О вчерашних новостях он может не знать.</li>
+</ul>
+<div class="key"><b>Главное.</b> Claude не поисковик, где вводят два слова. Это собеседник: чем больше контекста вы даёте, тем точнее ответ.</div>`,
+      uses: [['Дом', 'Меню на неделю из того, что есть в холодильнике; план ремонта; письмо в управляющую компанию.'], ['Работа', 'Черновик делового письма, протокол встречи из заметок, подготовка к переговорам.'], ['Учёба', 'Объяснить тему ребёнку, проверить сочинение, составить план подготовки к экзамену.'], ['Свой бизнес', 'Текст для объявления, ответы на частые вопросы клиентов, идеи для продвижения.']],
+      prompts: ['Объясни простыми словами, как работает ипотека: что такое ставка, ежемесячный платёж и переплата. Представь, что мне 16 лет.', 'Мне нужно написать вежливое письмо соседу о том, что его машина регулярно перекрывает выезд со двора. Тон дружелюбный, но твёрдый. Не больше 5 предложений.'],
+      task: 'Задайте Claude один вопрос, который давно хотели кому-нибудь задать, но было неудобно или некого спросить. Сравните ответ с тем, что вы нашли бы в поисковике.'
+    },
+    {
+      id: 'm0l2', t: 'Регистрация и знакомство с интерфейсом', min: 8, tier: 'free',
+      body: `
+<p>Claude работает в браузере на сайте <b>claude.ai</b>, а также в приложениях для компьютера (Windows и Mac) и телефона (iPhone и Android). Аккаунт один на все устройства, и история переписки синхронизируется.</p>
+<h3>Как начать</h3>
+<ol>
+<li>Откройте claude.ai или скачайте приложение со страницы claude.com/download.</li>
+<li>Зарегистрируйтесь через электронную почту или аккаунт Google.</li>
+<li>Начните с <b>бесплатного тарифа</b>. Его хватит, чтобы пройти первые модули курса. Платные тарифы дают больше сообщений и дополнительные функции, но решение о покупке лучше принимать после нескольких недель практики.</li>
+</ol>
+<p class="note">Доступность Claude зависит от страны. Актуальный список стран и тарифов смотрите на официальном сайте Anthropic.</p>
+<h3>Что вы видите на экране</h3>
+<figure class="ui-fig">
+<div class="ui-scroll"><div class="ui" role="img" aria-label="Схема главного экрана Claude: слева боковая панель, в центре приветствие и поле ввода">
+  <div class="ui-bar"><i></i><i></i><i></i><span>claude.ai</span></div>
+  <div class="ui-body">
+    <aside class="ui-side">
+      <div class="ui-logo">Claude</div>
+      <div class="ui-item ui-new"><b class="pin">1</b>+ Новый чат</div>
+      <div class="ui-item">Чаты</div>
+      <div class="ui-item ui-proj"><b class="pin">2</b>Проекты</div>
+      <div class="ui-item">Артефакты</div>
+      <div class="ui-cap">Недавние<b class="pin">3</b></div>
+      <div class="ui-item ui-dim">Меню на неделю</div>
+      <div class="ui-item ui-dim">Письмо в управляющую компанию</div>
+      <div class="ui-item ui-dim">План отпуска в августе</div>
+      <div class="ui-user"><span class="ui-ava">А</span>Анна · Бесплатный<b class="pin">7</b></div>
+    </aside>
+    <div class="ui-main">
+      <div class="ui-hello">Добрый вечер, Анна</div>
+      <div class="ui-input">
+        <div class="ui-ph">Чем могу помочь?<b class="pin">4</b></div>
+        <div class="ui-row">
+          <span class="ui-btn">+<b class="pin">5</b></span>
+          <span class="ui-model">Sonnet ▾<b class="pin">6</b></span>
+          <span class="ui-send">↑</span>
+        </div>
+      </div>
+      <div class="ui-chips"><span>Написать</span><span>Учиться</span><span>Код</span><span>Жизнь</span></div>
+    </div>
+  </div>
+</div></div>
+<figcaption>Схема главного экрана на компьютере. Внешний вид может немного отличаться: интерфейс регулярно обновляется, но расположение основных элементов остаётся прежним. В мобильном приложении боковая панель открывается кнопкой меню в левом верхнем углу.</figcaption>
+</figure>
+<ol class="ui-legend">
+<li><b>Новый чат.</b> Начинает разговор с чистого листа. Нажимайте его для каждой новой темы.</li>
+<li><b>Проекты</b> и другие разделы: ваши проекты (Модуль 1) и готовые артефакты (Модуль 2).</li>
+<li><b>История.</b> Список прошлых разговоров. Любой можно открыть и продолжить.</li>
+<li><b>Поле ввода.</b> Сюда пишете сообщение. Enter отправляет, Shift+Enter переносит строку.</li>
+<li><b>Кнопка «+».</b> Прикрепить файл или фото, включить веб-поиск и другие инструменты.</li>
+<li><b>Переключатель модели</b>: выбор «мозга», который отвечает. Подробнее в Модуле 1.</li>
+<li><b>Профиль.</b> Настройки: язык, память, подключения, тариф.</li>
+</ol>
+<div class="key"><b>Совет.</b> Начинайте новый чат для каждой новой темы. В одном длинном чате, где всё смешано, Claude хуже понимает, что сейчас важно.</div>`,
+      uses: [['Дом', 'Установите приложение на телефон: удобно спрашивать в магазине, в дороге, на даче.'], ['Работа', 'Приложение на компьютере открывается одной клавишей и всегда под рукой.']],
+      prompts: ['Привет! Я впервые пользуюсь нейросетью. Расскажи коротко, с какими 10 повседневными задачами ты можешь мне помочь. Приведи по одному примеру запроса для каждой.'],
+      task: 'Зарегистрируйтесь, установите приложение на телефон и отправьте первое сообщение из блока «Попробуйте». Сохраните себе 2–3 идеи из ответа.'
+    },
+    {
+      id: 'm0l3', t: 'Как правильно просить: формула запроса', min: 12, tier: 'free', builder: true,
+      body: `
+<p>Запрос к нейросети называют <b>промптом</b>. Хороший промпт — главный навык этого курса. Он не требует знания программирования: достаточно описать задачу так, как вы объяснили бы её толковому новому сотруднику.</p>
+<h3>Пять элементов сильного запроса</h3>
+<ol>
+<li><b>Контекст.</b> Кто вы, в какой ситуации, для кого результат. «Я владелец небольшой пекарни в спальном районе».</li>
+<li><b>Задача.</b> Что именно сделать, одним глаголом. «Напиши», «сравни», «составь план», «найди ошибки».</li>
+<li><b>Детали и ограничения.</b> Что важно учесть, чего избегать. «Без сложных терминов, бюджет до 20 000 рублей».</li>
+<li><b>Формат.</b> Как должен выглядеть результат. «Таблица из трёх колонок», «список из 5 пунктов», «не длиннее 100 слов».</li>
+<li><b>Пример</b> (по желанию). Образец того, что вам нравится: «Вот письмо, которое мне понравилось по тону: …».</li>
+</ol>
+<h3>Сравните</h3>
+<div class="compare">
+<div class="bad"><span class="lbl">Слабо</span>Напиши пост про скидки.</div>
+<div class="good"><span class="lbl">Сильно</span>Я владелец небольшой пекарни. В пятницу у нас скидка 30% на всю выпечку после 19:00. Напиши пост для группы в соцсети: дружелюбно, с лёгким юмором, 3–4 предложения, в конце призыв зайти по дороге домой. Дай 3 варианта.</div>
+</div>
+<p>Второй запрос длиннее на 30 секунд набора текста, а результат почти не нужно переделывать.</p>
+<div class="key"><b>Попробуйте конструктор ниже.</b> Заполните поля, и он соберёт запрос по формуле. Скопируйте его и вставьте в Claude.</div>`,
+      uses: [['Везде', 'Формула работает для любых задач: от письма в школу до бизнес-плана.']],
+      prompts: ['Я хочу научиться писать хорошие запросы к нейросетям. Задай мне 5 вопросов о моей работе и быте, а потом предложи 5 готовых запросов, которые сэкономят мне время каждую неделю.'],
+      task: 'Возьмите задачу, которую вы делали на этой неделе вручную (письмо, список, расчёт). Соберите для неё запрос в конструкторе и сравните результат с тем, что получилось у вас.'
+    },
+    {
+      id: 'm0l4', t: 'Диалог вместо одного вопроса', min: 8, tier: 'free',
+      body: `
+<p>Новички часто задают один вопрос, получают неидеальный ответ и разочаровываются. Опытные пользователи поступают иначе: <mark>первый ответ — это черновик</mark>, который вы доводите до нужного вида в разговоре.</p>
+<h3>Приёмы диалога</h3>
+<ul>
+<li><b>Уточняйте.</b> «Сделай короче», «убери канцелярит», «добавь цифры», «перепиши для пожилого человека».</li>
+<li><b>Просите варианты.</b> «Дай 3 разных варианта: строгий, дружелюбный и с юмором». Выбрать из трёх проще, чем описать идеал.</li>
+<li><b>Попросите Claude задать вопросы.</b> Если задача сложная и вы не знаете, с чего начать, напишите: «Прежде чем отвечать, задай мне вопросы, которые помогут сделать результат точным».</li>
+<li><b>Объясняйте, что не так.</b> Не «плохо», а «слишком официально, мы общаемся с клиентами на ты».</li>
+<li><b>Просите критику.</b> «Найди слабые места в моём плане». «Что я упустил?»</li>
+<li><b>Начните заново, если запутались.</b> Если после трёх-четырёх правок результат не улучшается, откройте новый чат и сформулируйте задачу с учётом того, что уже поняли.</li>
+</ul>
+<div class="key"><b>Главное.</b> Claude не обижается на критику и не устаёт. Просите переделать столько раз, сколько нужно.</div>`,
+      uses: [['Дом', 'Планирование отпуска: сначала варианты направлений, потом детали по выбранному, потом список вещей.'], ['Работа', 'Сложное письмо руководителю: черновик → тон → сокращение → финальная проверка.']],
+      prompts: ['Я хочу сменить работу, но не понимаю, в какую сторону. Прежде чем давать советы, задай мне 7 вопросов по одному, дожидаясь ответа на каждый.', 'Вот мой план на выходные: [вставьте план]. Найди в нём 3 слабых места и предложи, как их исправить.'],
+      task: 'Проведите один разговор минимум из 5 сообщений: начните с черновика (письма, плана, поста) и доведите его до результата, который не стыдно отправить.'
+    },
+    {
+      id: 'm0l5', t: 'Границы и безопасность', min: 8, tier: 'free',
+      body: `
+<p>Нейросеть — мощный инструмент, и как любым инструментом, им нужно пользоваться с умом. Пять правил защитят вас от большинства проблем.</p>
+<h3>1. Проверяйте важное</h3>
+<p>Иногда Claude выдаёт правдоподобный, но неверный ответ: путает даты, придумывает несуществующую статью закона или источник. Это называют <b>галлюцинацией</b>. Всё, от чего зависят деньги, здоровье или юридические последствия, перепроверяйте по первоисточнику. Помогает просьба: «Укажи источники» и включённый веб-поиск (Модуль 3).</p>
+<h3>2. Не передавайте секреты</h3>
+<p>Не вводите в чат пароли, полные номера банковских карт, коды из СМС, паспортные данные. Для работы с документом их можно заменить на «XXXX».</p>
+<h3>3. Берегите чужие данные</h3>
+<p>Прежде чем загружать документы с персональными данными клиентов или коллег, уточните правила вашей компании. Для личных и чувствительных тем есть <b>режим инкогнито</b>: такие чаты не сохраняются в историю и память.</p>
+<h3>4. Специалист важнее</h3>
+<p>В вопросах здоровья, права и крупных финансовых решений Claude помогает разобраться в теме и подготовить вопросы, но решение принимайте вместе со специалистом.</p>
+<h3>5. Ответственность на вас</h3>
+<p>Текст, который вы отправили от своего имени, — ваш текст. Перечитывайте всё, что подготовил Claude, перед отправкой.</p>
+<div class="key"><b>Главное.</b> Используйте Claude как черновик и советчика, а последнее слово оставляйте за собой.</div>`,
+      uses: [['Здоровье', 'Расшифровать термины из заключения врача и составить список вопросов к следующему приёму.'], ['Финансы', 'Понять условия вклада или кредита до визита в банк, но не подписывать ничего только по совету нейросети.']],
+      prompts: ['Объясни, что означают термины в этом заключении, простыми словами. Затем составь 5 вопросов, которые мне стоит задать врачу на приёме. [вставьте текст без ФИО и номера полиса]', 'Проверь факты в этом тексте. Для каждого утверждения скажи, насколько ты уверен, и что стоит перепроверить: [вставьте текст]'],
+      task: 'Попросите Claude рассказать о малоизвестном факте из вашей профессии или города. Проверьте ответ в двух независимых источниках. Так вы на практике увидите, где нейросети можно доверять, а где нет.'
+    }
+  ],
+  quiz: [
+    { q: 'Какой запрос даст более точный результат?', a: ['«Напиши поздравление»', '«Напиши поздравление коллеге с 50-летием: 4 предложения, тёплый тон, упомяни её любовь к походам»', '«Поздравление 50 лет»'], c: 1, e: 'В нём есть контекст, детали и формат. Это три из пяти элементов формулы.' },
+    { q: 'Claude дал неидеальный ответ. Что делать?', a: ['Закрыть чат: нейросеть не справилась', 'Объяснить, что именно не так, и попросить переделать', 'Задать тот же вопрос слово в слово ещё раз'], c: 1, e: 'Первый ответ — черновик. Конкретная обратная связь улучшает результат быстрее всего.' },
+    { q: 'Что из этого не стоит вводить в чат?', a: ['Текст договора без персональных данных', 'Код из СМС от банка', 'Вопрос о налоговом вычете'], c: 1, e: 'Коды подтверждения, пароли и номера карт никогда не нужны для работы с нейросетью.' }
+  ]
+});
+
+COURSE.push({
+  id: 'm1', num: 1, week: 'Неделя 1–2', title: 'Основы: проекты, память, файлы и голос',
+  goal: 'Настроить Claude под себя так, чтобы не объяснять каждый раз заново, кто вы и чем заняты.',
+  lessons: [
+    {
+      id: 'm1l1', t: 'Модели: какую выбрать', min: 6, tier: 'mixed',
+      body: `
+<p>У Claude есть несколько <b>моделей</b>, то есть версий «мозга» с разными сильными сторонами. Переключатель находится рядом с полем ввода. Названия моделей обновляются раз в несколько месяцев, но логика остаётся прежней.</p>
+<table class="tbl"><thead><tr><th>Класс</th><th>Когда использовать</th><th>Пример на октябрь 2026</th></tr></thead><tbody>
+<tr><td><b>Старшая</b></td><td>Сложный анализ, стратегия, длинные документы, где важна каждая деталь</td><td>Opus, Fable</td></tr>
+<tr><td><b>Средняя</b></td><td>Повседневные задачи: письма, планы, объяснения. Лучший баланс скорости и качества</td><td>Sonnet</td></tr>
+<tr><td><b>Быстрая</b></td><td>Простые и короткие задачи, когда важна скорость</td><td>Haiku</td></tr>
+</tbody></table>
+<p>На бесплатном тарифе выбор моделей ограничен, и это нормально: для первых недель обучения хватит модели по умолчанию.</p>
+<div class="key"><b>Правило.</b> Начинайте со средней модели. Переключайтесь на старшую, если ответ кажется поверхностным или задача действительно сложная.</div>`,
+      uses: [['Работа', 'Средняя модель для писем, старшая для анализа договора или финансовой модели.'], ['Учёба', 'Быстрая модель для проверки слова или даты, средняя для объяснения темы.']],
+      prompts: ['Сравни два варианта: снимать квартиру или брать ипотеку в моей ситуации. Мне 32 года, доход стабильный, планирую жить в городе минимум 7 лет. Какие вопросы мне нужно себе задать?'],
+      task: 'Задайте один и тот же сложный вопрос двум разным моделям (если они доступны) и сравните глубину ответов.'
+    },
+    {
+      id: 'm1l2', t: 'Файлы и фото в чате', min: 8, tier: 'free',
+      body: `
+<p>Claude умеет «читать» не только текст, который вы пишете, но и вложения: PDF, документы Word, таблицы Excel, презентации, фотографии и скриншоты. Нажмите скрепку или перетащите файл в окно чата.</p>
+<h3>Что можно делать с файлами</h3>
+<ul>
+<li><b>Пересказ.</b> «Перескажи этот договор на 40 страниц в 10 пунктах. Отдельно выдели, что меня может удивить».</li>
+<li><b>Поиск ответа.</b> «Есть ли в инструкции к стиральной машине режим для пуховиков?»</li>
+<li><b>Сравнение.</b> Загрузите два предложения от подрядчиков и попросите сравнить по цене, срокам и гарантиям.</li>
+<li><b>Фото.</b> Сфотографируйте квитанцию, меню на иностранном языке, ошибку на экране, сломанную деталь, и Claude объяснит, что на нём.</li>
+<li><b>Скриншоты.</b> Непонятное окно в программе? Сделайте снимок экрана и спросите, что нажать.</li>
+</ul>
+<div class="key"><b>Совет.</b> Скажите, что вам нужно от файла. «Вот договор, найди риски для арендатора» работает лучше, чем просто прикреплённый файл без вопроса.</div>`,
+      uses: [['Дом', 'Разобраться в квитанции ЖКХ, инструкции к технике, условиях страховки.'], ['Работа', 'Пересказ длинного отчёта перед совещанием, сравнение коммерческих предложений.'], ['Путешествия', 'Перевод меню, табличек и расписаний по фото.']],
+      prompts: ['Я прикрепил договор аренды квартиры. Я арендатор. Перескажи главное в 10 пунктах и отдельно перечисли условия, которые могут быть для меня невыгодными.', 'На фото — содержимое моего холодильника. Предложи 3 блюда на ужин, которые можно приготовить за 30 минут.'],
+      task: 'Сфотографируйте любой документ или упаковку с мелким текстом и попросите Claude объяснить главное простыми словами.'
+    },
+    {
+      id: 'm1l3', t: 'Проекты: рабочее место для каждой темы', min: 10, tier: 'mixed',
+      body: `
+<p><b>Проект</b> — это папка для разговоров на одну тему, у которой есть своя «память». В проект можно загрузить документы и написать инструкции, и Claude будет учитывать их в каждом новом чате внутри этого проекта.</p>
+<p>Без проекта каждый новый чат начинается с чистого листа: приходится заново объяснять, кто вы и что делаете. С проектом Claude уже знает контекст до того, как вы напишете первое слово.</p>
+<h3>Как создать проект</h3>
+<ol>
+<li>В боковой панели нажмите «Проекты», затем «Создать проект».</li>
+<li>Дайте понятное название: «Ремонт кухни», а не «Разное».</li>
+<li>Загрузите документы: смету, планировку, фото, переписку с бригадой.</li>
+<li>Напишите инструкции: «Я делаю ремонт кухни 9 м². Бюджет 600 000 ₽. Отвечай кратко, суммы в рублях, сроки в рабочих днях».</li>
+<li>Ведите все разговоры на эту тему внутри проекта.</li>
+</ol>
+<h3>Идеи проектов</h3>
+<ul>
+<li>«Семейный бюджет» с выписками и целями накоплений</li>
+<li>«Учёба ребёнка» с программой и расписанием</li>
+<li>«Поиск работы» с резюме и описаниями вакансий</li>
+<li>«Мой магазин» с прайсом, ответами на вопросы клиентов и стилем общения</li>
+<li>«Здоровье и спорт» с планом тренировок и рекомендациями врача</li>
+</ul>
+<p class="note">На бесплатном тарифе число проектов ограничено, на платных тарифах ограничений больше.</p>
+<div class="key"><b>Главное.</b> Одна большая тема — один проект. Так Claude не путает контекст и отвечает точнее.</div>`,
+      uses: [['Дом', 'Проект «Ремонт» или «Переезд» со всеми документами в одном месте.'], ['Работа', 'Проект на каждого крупного клиента или направление.'], ['Свой бизнес', 'Проект с прайсом, правилами и стилем общения для ответов клиентам.']],
+      prompts: ['Помоги составить инструкции для проекта «Семейный бюджет». Задай мне вопросы о составе семьи, доходах, крупных целях и о том, в каком виде мне удобно получать ответы.'],
+      task: 'Создайте свой первый проект на тему, которая волнует вас сейчас. Загрузите хотя бы один документ и напишите инструкции из 3–5 предложений.'
+    },
+    {
+      id: 'm1l4', t: 'Память, поиск по прошлым чатам и инкогнито', min: 8, tier: 'mixed',
+      body: `
+<p><b>Память</b> позволяет Claude запоминать факты о вас между разговорами: имя, профессию, предпочтения, членов семьи, текущие дела. Управляется она в настройках: там можно посмотреть, что сохранено, исправить или удалить запись, либо выключить память совсем.</p>
+<h3>Как этим пользоваться</h3>
+<ul>
+<li><b>Попросите запомнить:</b> «Запомни, что я вегетарианец» или «Запомни: отвечай мне кратко и без канцелярита».</li>
+<li><b>Попросите забыть:</b> «Забудь, что я рассказывал про смену работы».</li>
+<li><b>Ссылайтесь на прошлое:</b> «Что мы решили про отпуск на прошлой неделе?» Claude найдёт нужный чат и напомнит.</li>
+</ul>
+<h3>Режим инкогнито</h3>
+<p>Для разговоров, которые не нужно запоминать, есть инкогнито-чат. Он не попадает в историю и не обновляет память. Подходит для личных тем, подарка-сюрприза, чувствительных рабочих вопросов.</p>
+<div class="key"><b>Совет.</b> Раз в месяц заглядывайте в настройки памяти и удаляйте устаревшее, как при уборке в шкафу.</div>`,
+      uses: [['Дом', 'Claude помнит аллергии в семье и не предлагает неподходящие рецепты.'], ['Работа', 'Не нужно каждый раз объяснять должность, команду и стиль общения.']],
+      prompts: ['Запомни обо мне: [профессия], живу в [город], люблю короткие ответы со списками, не люблю длинные вступления.', 'Что ты обо мне знаешь? Перечисли, чтобы я проверил, всё ли верно.'],
+      task: 'Расскажите Claude о себе 5–7 фактов, которые важны для повседневных задач. Через день спросите в новом чате: «Что ты обо мне знаешь?»'
+    },
+    {
+      id: 'm1l5', t: 'Стиль ответов и личные настройки', min: 5, tier: 'free',
+      body: `
+<p>Если вам постоянно приходится писать «короче», «без воды», «по-русски», вынесите это в настройки один раз.</p>
+<ul>
+<li><b>Личные предпочтения</b> (в настройках профиля): правила, которые действуют во всех чатах. Например: «Отвечай на русском, кратко, сначала вывод, потом детали».</li>
+<li><b>Стили</b>: готовые или собственные режимы ответа, например «Краткий», «Подробный», «Объясняющий». Переключаются рядом с полем ввода.</li>
+</ul>
+<p>Можно создать собственный стиль, загрузив образец текста, который вам нравится. Claude подстроится под его тон и манеру.</p>
+<div class="key"><b>Правило.</b> То, что вы просите в каждом третьем чате, переносите в настройки.</div>`,
+      uses: [['Работа', 'Стиль «деловая переписка» для писем, стиль «кратко» для быстрых вопросов.'], ['Блог', 'Свой стиль по образцам ваших постов, чтобы тексты звучали как вы.']],
+      prompts: ['Помоги сформулировать мои предпочтения для настроек: я [кто вы], обычно прошу тебя о [задачи]. Предложи 5–7 коротких правил, которые сделают твои ответы удобнее для меня.'],
+      task: 'Сформулируйте 3–5 правил в личных настройках и проверьте, как изменились ответы в новом чате.'
+    },
+    {
+      id: 'm1l6', t: 'Голосовой режим и телефон', min: 5, tier: 'free',
+      body: `
+<p>В мобильном приложении с Claude можно разговаривать голосом, как по телефону. Это удобно, когда руки заняты или когда мысль проще проговорить, чем напечатать.</p>
+<h3>Сценарии</h3>
+<ul>
+<li>Обдумать день по дороге на работу: «Помоги расставить приоритеты на сегодня».</li>
+<li>Надиктовать идею или список покупок, а потом попросить оформить их текстом.</li>
+<li>Тренировать иностранный язык в живом разговоре.</li>
+<li>Готовить ужин и спрашивать рецепт по шагам, не касаясь экрана.</li>
+<li>Отрепетировать собеседование или сложный разговор.</li>
+</ul>
+<div class="key"><b>Совет.</b> Голосовая диктовка в поле ввода тоже экономит время: говорите длинный запрос вслух, а Claude получит его текстом.</div>`,
+      uses: [['Учёба', 'Разговорная практика на иностранном языке без репетитора.'], ['Карьера', 'Репетиция собеседования: Claude играет роль интервьюера.']],
+      prompts: ['Давай потренируем собеседование на должность [должность]. Ты интервьюер: задавай вопросы по одному, после моих ответов давай короткую обратную связь.', 'Let’s practice English. Talk to me about travel, correct my mistakes gently after each answer.'],
+      task: 'Проведите 5-минутный голосовой разговор: репетицию собеседования или разговорную практику на иностранном языке.'
+    },
+    {
+      id: 'm1l7', t: 'Режим размышления для сложных задач', min: 5, tier: 'mixed',
+      body: `
+<p>Для непростых вопросов у Claude есть режим, в котором он <b>сначала обдумывает ответ</b>, а потом пишет. Ответ приходит медленнее, но точнее: модель проверяет свои рассуждения, рассматривает варианты, находит подвохи.</p>
+<h3>Когда включать</h3>
+<ul>
+<li>Расчёты с несколькими шагами: кредит с досрочным погашением, сравнение тарифов.</li>
+<li>Логические задачи и головоломки.</li>
+<li>Сложные решения с многими факторами: переезд, выбор вуза, смена профессии.</li>
+<li>Анализ длинного документа на противоречия.</li>
+</ul>
+<p>Для простых вопросов этот режим не нужен: результат будет тот же, а ждать придётся дольше.</p>`,
+      uses: [['Финансы', 'Сравнить три варианта кредита с учётом страховки и досрочного погашения.'], ['Жизнь', 'Разложить сложное решение по критериям с весами.']],
+      prompts: ['Помоги принять решение: переезжать ли нашей семье в другой город. Факторы: работа, школа для детей, стоимость жилья, близость родственников. Задай мне вопросы, потом построй таблицу с весами критериев и выводом.'],
+      task: 'Выберите решение, которое откладываете, и разберите его с Claude в режиме размышления.'
+    }
+  ],
+  quiz: [
+    { q: 'Зачем нужен проект?', a: ['Чтобы чаты выглядели красивее', 'Чтобы Claude учитывал документы и инструкции во всех чатах на одну тему', 'Чтобы ускорить интернет'], c: 1, e: 'Проект хранит общий контекст: файлы и инструкции работают в каждом новом чате внутри него.' },
+    { q: 'Вы хотите обсудить подарок-сюрприз мужу, и он иногда пользуется вашим ноутбуком. Что выбрать?', a: ['Обычный чат', 'Инкогнито-чат', 'Проект «Подарки»'], c: 1, e: 'Инкогнито не сохраняется в историю и память.' },
+    { q: 'Вы в каждом чате пишете «отвечай кратко». Как решить проблему один раз?', a: ['Перенести это в личные предпочтения или стиль', 'Писать заглавными буквами', 'Сменить модель'], c: 0, e: 'Предпочтения в настройках действуют во всех чатах автоматически.' }
+  ]
+});
+
+COURSE.push({
+  id: 'm2', num: 2, week: 'Неделя 2', title: 'Готовые результаты: документы, таблицы, презентации',
+  goal: 'Получать от Claude не просто текст в чате, а готовые к работе файлы: документы, таблицы, презентации и мини-приложения.',
+  lessons: [
+    {
+      id: 'm2l1', t: 'Что такое артефакты', min: 6, tier: 'free',
+      body: `
+<p>Когда вы просите Claude создать что-то объёмное (документ, таблицу, презентацию, небольшое приложение), результат появляется не в ленте сообщений, а <b>в отдельной панели</b> рядом с чатом. Такой результат называется <b>артефактом</b>.</p>
+<h3>Чем артефакт лучше текста в чате</h3>
+<ul>
+<li>Его можно <b>редактировать</b> прямо на месте: исправить слово, поменять цифру.</li>
+<li>Его можно <b>дорабатывать</b> в разговоре: «добавь раздел про сроки», «сделай таблицу по месяцам».</li>
+<li>Им можно <b>поделиться</b> ссылкой с коллегой или родственником.</li>
+<li>Его можно <b>скачать</b> в привычном формате: Word, PowerPoint, PDF, Excel (зависит от типа).</li>
+<li>Все ваши артефакты хранятся в отдельном разделе, их легко найти.</li>
+</ul>
+<div class="key"><b>Как попросить.</b> Назовите, что хотите получить: «Сделай документ», «Сделай таблицу», «Сделай презентацию». Claude сам выберет подходящий тип.</div>`,
+      uses: [['Дом', 'Чек-лист переезда, который вы отмечаете галочками.'], ['Работа', 'Отчёт, которым можно поделиться ссылкой.']],
+      prompts: ['Сделай документ: чек-лист подготовки к переезду в новую квартиру за 4 недели. Раздели по неделям, добавь пункты про документы, вещи, коммунальные услуги и детей.'],
+      task: 'Создайте первый артефакт: чек-лист для любого предстоящего события. Отредактируйте в нём хотя бы одну строку вручную.'
+    },
+    {
+      id: 'm2l2', t: 'Документы', min: 8, tier: 'free',
+      body: `
+<p>Документ — живой текстовый файл: с заголовками, таблицами, списками. Его можно править самому, оставлять комментарии и выгружать в Word или PDF.</p>
+<h3>Что удобно делать документом</h3>
+<ul>
+<li>Резюме и сопроводительное письмо под конкретную вакансию</li>
+<li>Инструкция для няни или пожилых родителей: «как пользоваться телевизором»</li>
+<li>Правила для сотрудников небольшого бизнеса</li>
+<li>План путешествия с бронированиями и контактами</li>
+<li>Заявление, претензия, официальное письмо по образцу</li>
+</ul>
+<h3>Приём «комментарий»</h3>
+<p>В готовом документе выделите фрагмент и оставьте комментарий, например «перепиши проще». Claude поправит именно это место и не тронет остальное.</p>`,
+      uses: [['Карьера', 'Резюме, адаптированное под каждую вакансию за 5 минут.'], ['Семья', 'Памятка для бабушки, которая остаётся с детьми.'], ['Свой бизнес', 'Регламент работы с клиентами для нового сотрудника.']],
+      prompts: ['Вот описание вакансии: [вставьте]. Вот моё резюме: [вставьте]. Сделай документ: адаптированное резюме под эту вакансию и сопроводительное письмо на полстраницы.', 'Сделай документ: памятка для няни. Ребёнку 4 года. Включи распорядок дня, еду и аллергии, контакты, что делать при температуре, правила экранного времени.'],
+      task: 'Создайте один документ, который реально пригодится на этой неделе, и выгрузите его в Word или PDF.'
+    },
+    {
+      id: 'm2l3', t: 'Таблицы', min: 8, tier: 'mixed',
+      body: `
+<p>Claude создаёт таблицы с формулами: суммы считаются сами, при изменении цифры пересчитывается всё. Не нужно знать Excel: опишите словами, что хотите учитывать.</p>
+<h3>Примеры</h3>
+<ul>
+<li><b>Семейный бюджет</b>: доходы, обязательные платежи, категории расходов, остаток, цель накоплений.</li>
+<li><b>Трекер привычек</b>: дни месяца × привычки, процент выполнения.</li>
+<li><b>Сравнение вариантов</b>: квартиры, машины, детские сады по критериям с оценками.</li>
+<li><b>Учёт клиентов</b> для небольшого бизнеса: имя, телефон, дата обращения, статус, сумма.</li>
+<li><b>План накоплений</b>: сколько откладывать ежемесячно, чтобы к нужной дате собрать нужную сумму.</li>
+</ul>
+<div class="key"><b>Совет.</b> Если у вас уже есть таблица, загрузите её и попросите: «Найди, на что уходит больше всего денег, и построй итог по категориям».</div>`,
+      uses: [['Финансы', 'Бюджет семьи с автоматическим подсчётом остатка.'], ['Свой бизнес', 'Простая база клиентов вместо тетрадки.']],
+      prompts: ['Сделай таблицу семейного бюджета на месяц. Доходы: две зарплаты. Расходы по категориям: жильё, продукты, транспорт, дети, здоровье, развлечения, прочее. Добавь план, факт, разницу и итог. Отдельная строка «Откладываем 10%».', 'Сделай таблицу для сравнения трёх квартир, которые я смотрю: цена, площадь, этаж, район, до метро, состояние, оценка от 1 до 5 и итоговый балл с весами.'],
+      task: 'Сделайте таблицу для реальной задачи, которую сейчас считаете на бумаге или в голове.'
+    },
+    {
+      id: 'm2l4', t: 'Презентации', min: 7, tier: 'mixed',
+      body: `
+<p>Claude соберёт презентацию по вашему описанию, тексту или документу. Её можно править, показывать и выгрузить в PowerPoint или PDF.</p>
+<h3>Как получить хорошую презентацию</h3>
+<ol>
+<li>Укажите <b>аудиторию и цель</b>: «для родительского собрания, чтобы убедить скинуться на экскурсию».</li>
+<li>Укажите <b>объём</b>: «8 слайдов, не больше 30 слов на слайде».</li>
+<li>Приложите <b>материал</b>: заметки, отчёт, таблицу с цифрами.</li>
+<li>Попросите <b>текст для выступления</b> к каждому слайду, чтобы не готовиться отдельно.</li>
+</ol>`,
+      uses: [['Учёба', 'Доклад для школы или института за вечер.'], ['Работа', 'Отчёт о результатах квартала для руководителя.'], ['Сообщество', 'Предложение на собрании жильцов.']],
+      prompts: ['Сделай презентацию на 7 слайдов для собрания жильцов: предлагаем установить шлагбаум во дворе. Слайды: проблема, варианты, стоимость на квартиру, сроки, ответы на возражения, голосование. Добавь короткий текст выступления к каждому слайду.'],
+      task: 'Превратите любой свой документ или заметки в презентацию из 5–7 слайдов.'
+    },
+    {
+      id: 'm2l5', t: 'Дизайн, доски, задачи и дашборды', min: 8, tier: 'mixed',
+      body: `
+<p>Кроме документов и таблиц, у Claude есть и другие типы результатов. Названия и набор зависят от тарифа и обновляются, но идея одна: вы описываете, что нужно, и получаете готовую вещь.</p>
+<table class="tbl"><thead><tr><th>Тип</th><th>Что это</th><th>Пример</th></tr></thead><tbody>
+<tr><td><b>Дизайн</b></td><td>Афиши, листовки, открытки, макеты сайтов</td><td>Приглашение на день рождения, листовка для ярмарки</td></tr>
+<tr><td><b>Доска</b></td><td>Стикеры, стрелки, схемы, которые можно двигать</td><td>Мозговой штурм идей, схема семейного древа</td></tr>
+<tr><td><b>Задачи</b></td><td>Список дел со статусами, сроками, ответственными</td><td>Подготовка свадьбы, распределение домашних дел</td></tr>
+<tr><td><b>Дашборд</b></td><td>Экран с ключевыми цифрами и графиками</td><td>Расходы по месяцам, продажи магазина</td></tr>
+</tbody></table>`,
+      uses: [['Праздники', 'Приглашения и план подготовки праздника.'], ['Свой бизнес', 'Дашборд продаж из выгрузки кассы.']],
+      prompts: ['Сделай список задач для подготовки к дню рождения ребёнка через 3 недели: 15 гостей, дома. Разбей по неделям, добавь ответственных (я, муж, бабушка) и бюджет по пунктам.', 'Сделай дизайн приглашения на семейный праздник: [повод, дата, место]. Стиль праздничный, но не детский.'],
+      task: 'Выберите ближайшее событие в вашей жизни и сделайте для него список задач со сроками.'
+    },
+    {
+      id: 'm2l6', t: 'Мини-приложения и наглядные схемы', min: 8, tier: 'free',
+      body: `
+<p>Claude умеет создавать <b>маленькие программы, которые работают прямо в браузере</b>: калькуляторы, тесты, тренажёры, игры. Знать программирование не нужно: опишите, что должно происходить.</p>
+<h3>Идеи</h3>
+<ul>
+<li>Калькулятор: «сколько я трачу на кофе за год», «сколько краски нужно на комнату».</li>
+<li>Тренажёр таблицы умножения или английских слов для ребёнка.</li>
+<li>Тест для проверки знаний сотрудников.</li>
+<li>Таймер для тренировок с интервалами.</li>
+<li>Простой сайт-визитка для мастера или репетитора.</li>
+</ul>
+<p>А когда нужно что-то объяснить, попросите <b>схему или график</b>: «покажи схемой, как работает...», «нарисуй график моих расходов».</p>`,
+      uses: [['Дети', 'Тренажёр по математике с похвалой за правильные ответы.'], ['Свой бизнес', 'Калькулятор стоимости услуги для клиентов.']],
+      prompts: ['Сделай тренажёр таблицы умножения для ребёнка 8 лет. 10 случайных примеров, крупные кнопки, похвала за правильный ответ, в конце результат и звёздочки.', 'Сделай калькулятор: сколько стоит ремонт комнаты. Ввожу площадь, высоту потолков, тип отделки (эконом/стандарт/премиум) и получаю примерную смету по материалам и работам.'],
+      task: 'Создайте одно мини-приложение для себя или для детей и поделитесь ссылкой с близким человеком.'
+    }
+  ],
+  quiz: [
+    { q: 'Чем артефакт отличается от обычного ответа в чате?', a: ['Ничем', 'Его можно редактировать, дорабатывать, скачивать и делиться ссылкой', 'Он всегда платный'], c: 1, e: 'Артефакт — самостоятельная вещь, с которой можно работать дальше.' },
+    { q: 'Вы хотите учитывать семейные расходы с автоматическим подсчётом. Что попросить?', a: ['Документ', 'Таблицу', 'Презентацию'], c: 1, e: 'В таблице формулы пересчитывают итоги сами.' },
+    { q: 'Как поправить один абзац в длинном документе, не трогая остальное?', a: ['Попросить переписать весь документ', 'Выделить абзац и оставить комментарий с просьбой', 'Начать новый чат'], c: 1, e: 'Комментарий к фрагменту даёт точечную правку.' }
+  ]
+});
+
+COURSE.push({
+  id: 'm3', num: 3, week: 'Неделя 3', title: 'Поиск информации и анализ данных',
+  goal: 'Получать актуальные ответы с источниками, проводить глубокие исследования и считать цифры точно.',
+  lessons: [
+    {
+      id: 'm3l1', t: 'Веб-поиск: свежая информация с источниками', min: 6, tier: 'free',
+      body: `
+<p>Сама по себе нейросеть знает мир только до определённой даты. С включённым <b>веб-поиском</b> Claude ищет в интернете, читает страницы и отвечает со ссылками на источники.</p>
+<h3>Когда поиск нужен обязательно</h3>
+<ul>
+<li>Цены, курсы, тарифы, расписания</li>
+<li>Новости и события последних месяцев</li>
+<li>Действующие законы, правила, сроки подачи документов</li>
+<li>Отзывы и сравнение товаров</li>
+<li>Часы работы, адреса, контакты</li>
+</ul>
+<div class="key"><b>Правило.</b> Если ответ мог измениться за последний год, включайте поиск и просите ссылки на источники.</div>`,
+      uses: [['Покупки', 'Сравнить три модели пылесоса по отзывам и ценам.'], ['Документы', 'Узнать актуальный порядок оформления справки или вычета.']],
+      prompts: ['Найди актуальную информацию: какие документы нужны для оформления налогового вычета за лечение в этом году. Дай пошаговый список и ссылки на официальные источники.', 'Сравни 3 популярных робота-пылесоса до 30 000 ₽: цены, плюсы и минусы по отзывам. Таблица и ссылки.'],
+      task: 'Найдите с помощью Claude ответ на практический вопрос, где важна актуальность, и откройте хотя бы одну ссылку-источник.'
+    },
+    {
+      id: 'm3l2', t: 'Глубокое исследование', min: 8, tier: 'paid',
+      body: `
+<p><b>Исследование</b> (Research) — особый режим, в котором Claude работает как аналитик: 10–30 минут ищет по десяткам источников, сопоставляет их и выдаёт подробный отчёт со ссылками.</p>
+<h3>Когда использовать</h3>
+<ul>
+<li>Выбор крупной покупки: машина, недвижимость, школа, клиника.</li>
+<li>Изучение новой темы с нуля: «всё о разведении клубники на даче».</li>
+<li>Анализ рынка перед запуском своего дела.</li>
+<li>Подготовка к переезду в другой город или страну.</li>
+</ul>
+<h3>Как сформулировать</h3>
+<p>Опишите цель, что важно, какие источники предпочтительны и в каком виде нужен результат. Если запрос неясный, Claude задаст уточняющие вопросы перед началом.</p>
+<p class="note">Режим доступен на платных тарифах. Пока идёт исследование, можно заниматься другими делами.</p>`,
+      uses: [['Семья', 'Выбор школы: программы, рейтинги, отзывы родителей.'], ['Свой бизнес', 'Конкуренты, цены и спрос перед открытием кофейни.']],
+      prompts: ['Проведи исследование: я хочу открыть небольшую кофейню навынос в спальном районе. Мне нужно понять типичные стартовые затраты, срок окупаемости, главные ошибки новичков и какие форматы сейчас работают лучше всего. Отчёт с источниками и выводами.'],
+      task: 'Запустите одно исследование по теме, в которой вы давно хотели разобраться.'
+    },
+    {
+      id: 'm3l3', t: 'Анализ документов и больших текстов', min: 7, tier: 'free',
+      body: `
+<p>Claude может прочитать сразу несколько длинных документов и найти в них то, что вам нужно. Это экономит часы на чтении договоров, отчётов, инструкций.</p>
+<h3>Полезные запросы</h3>
+<ul>
+<li>«Найди противоречия между этими двумя документами»</li>
+<li>«Что изменилось в новой версии договора по сравнению со старой?»</li>
+<li>«Составь список всех сроков и дат из этого документа»</li>
+<li>«Какие вопросы задать продавцу после прочтения этого договора?»</li>
+</ul>
+<div class="key"><b>Помните.</b> Claude помогает разобраться, но юридически значимые решения принимайте с юристом.</div>`,
+      uses: [['Покупки', 'Проверить договор с автосалоном или застройщиком перед подписанием.'], ['Работа', 'Сравнить версии договора с поставщиком.']],
+      prompts: ['Я прикрепил две версии договора. Перечисли все отличия в таблице: пункт, было, стало, чем это важно для меня как покупателя.'],
+      task: 'Загрузите длинный документ, который давно откладывали прочитать, и попросите выжимку на одну страницу.'
+    },
+    {
+      id: 'm3l4', t: 'Точные расчёты и анализ данных', min: 7, tier: 'free',
+      body: `
+<p>Когда дело касается цифр, Claude не считает «в уме», а <b>пишет и запускает небольшую программу</b>. Так результаты точнее. Вам не нужно разбираться в коде: достаточно загрузить данные и задать вопрос.</p>
+<h3>Что можно посчитать</h3>
+<ul>
+<li>Выписка из банка: на что уходят деньги, какие подписки можно отменить.</li>
+<li>Продажи магазина: какие товары растут, в какие дни выручка выше.</li>
+<li>График платежей по кредиту, эффект досрочного погашения.</li>
+<li>Результаты опроса: проценты, графики, выводы.</li>
+</ul>
+<div class="key"><b>Совет.</b> Попросите показать графиком: одна картинка часто говорит больше таблицы.</div>`,
+      uses: [['Финансы', 'Анализ выписки за 3 месяца и список «утечек» бюджета.'], ['Свой бизнес', 'Какие товары приносят 80% выручки.']],
+      prompts: ['Я загрузил выписку по карте за 3 месяца (личные данные удалены). Разбей траты по категориям, покажи график по месяцам, найди регулярные подписки и предложи, где можно сэкономить 10%.', 'Кредит 1 500 000 ₽ на 5 лет под 18% годовых. Посчитай ежемесячный платёж и переплату. Покажи, сколько я сэкономлю, если буду вносить дополнительно 10 000 ₽ в месяц.'],
+      task: 'Загрузите любую свою таблицу с цифрами (выписку, учёт, отчёт) и попросите 3 вывода и один график.'
+    }
+  ],
+  quiz: [
+    { q: 'Вы спрашиваете о курсе валют на сегодня. Что нужно?', a: ['Ничего, Claude и так знает', 'Включить веб-поиск', 'Режим размышления'], c: 1, e: 'Без поиска у модели нет актуальных данных.' },
+    { q: 'Для чего лучше подходит глубокое исследование?', a: ['Узнать столицу Франции', 'Выбрать школу для ребёнка по десяткам источников', 'Перевести одно предложение'], c: 1, e: 'Исследование нужно для сложных вопросов, где важны многие источники.' },
+    { q: 'Почему расчёты по таблице лучше доверить Claude с запуском кода?', a: ['Так красивее', 'Программа считает точно, без ошибок «в уме»', 'Это обязательно'], c: 1, e: 'Код даёт точные цифры даже на больших данных.' }
+  ]
+});
+// ===== Контент курса «Claude с нуля» (часть 2: модули 4–8, план, словарь) =====
+
+COURSE.push({
+  id: 'm4', num: 4, week: 'Неделя 4', title: 'Подключения: почта, календарь, браузер, Office',
+  goal: 'Связать Claude с сервисами, которыми вы пользуетесь каждый день, чтобы он сам брал оттуда данные и помогал внутри них.',
+  lessons: [
+    {
+      id: 'm4l1', t: 'Что такое коннекторы', min: 6, tier: 'mixed',
+      body: `
+<p>По умолчанию Claude видит только то, что вы ему написали или прикрепили. <b>Коннекторы</b> (подключения) дают ему доступ к вашим сервисам: почте, календарю, облачному диску, заметкам, рабочим системам. После подключения не нужно копировать письма или файлы в чат: Claude найдёт их сам.</p>
+<h3>Как подключить</h3>
+<ol>
+<li>Откройте настройки и найдите раздел подключений (коннекторов).</li>
+<li>Выберите сервис из каталога: Google Диск, Gmail, Google Календарь, Notion и многие другие.</li>
+<li>Войдите в аккаунт сервиса и разрешите доступ.</li>
+<li>В чате включите нужный коннектор и спрашивайте обычным языком.</li>
+</ol>
+<p>Технически коннекторы работают по открытому стандарту <b>MCP</b>. Знать подробности не нужно, но это слово часто встречается в обучающих видео.</p>
+<div class="key"><b>Безопасность.</b> Подключайте только то, что действительно нужно. Доступ можно отозвать в любой момент в настройках.</div>`,
+      uses: [['Работа', 'Claude находит нужный отчёт на диске без вашей помощи.'], ['Дом', 'Семейный календарь и почта в одном разговоре.']],
+      prompts: ['Какие подключения ты бы порекомендовал человеку, который [кто вы]? Объясни, что даст каждое и какие риски стоит учесть.'],
+      task: 'Подключите один сервис, которым пользуетесь каждый день, и задайте вопрос, ответ на который лежит внутри него.'
+    },
+    {
+      id: 'm4l2', t: 'Почта, календарь и облачный диск', min: 8, tier: 'mixed',
+      body: `
+<p>Самые полезные подключения для большинства людей связаны с почтой, календарём и облачным хранилищем файлов.</p>
+<h3>Что становится возможным</h3>
+<ul>
+<li><b>Разбор почты:</b> «Какие письма за неделю требуют моего ответа? Подготовь черновики».</li>
+<li><b>План недели:</b> «Посмотри мой календарь и скажи, где есть 2 часа на спорт и где я перегружен».</li>
+<li><b>Поиск файлов:</b> «Найди на диске договор с садиком и напомни, когда платить».</li>
+<li><b>Подготовка к встрече:</b> «Завтра встреча с Анной. Собери всё из почты и документов, что относится к нашему проекту».</li>
+</ul>
+<div class="key"><b>Совет.</b> Начните с режима «только читать». Claude подготовит черновик письма, а отправите вы сами после проверки.</div>`,
+      uses: [['Работа', 'Утренний разбор входящих за 5 минут вместо 40.'], ['Семья', 'Общий календарь кружков, врачей и праздников.']],
+      prompts: ['Посмотри мою почту за последние 7 дней. Перечисли письма, которые требуют ответа или действия, по степени срочности. Для трёх самых важных подготовь короткие черновики ответов.', 'Посмотри мой календарь на следующую неделю. Где я перегружен? Предложи, какие встречи можно перенести, и найди 3 окна по часу для личных дел.'],
+      task: 'Подключите почту или календарь и попросите составить план на завтра с учётом встреч и важных писем.'
+    },
+    {
+      id: 'm4l3', t: 'Claude в браузере', min: 7, tier: 'paid',
+      body: `
+<p><b>Claude in Chrome</b> — расширение для браузера Chrome. Claude видит открытую страницу и может действовать на ней: нажимать кнопки, заполнять формы, переходить по ссылкам, собирать информацию с нескольких сайтов.</p>
+<h3>Сценарии</h3>
+<ul>
+<li>Сравнить цены на товар в нескольких интернет-магазинах.</li>
+<li>Собрать в таблицу 20 вакансий с сайта поиска работы.</li>
+<li>Заполнить длинную однотипную форму по вашим данным.</li>
+<li>Пересказать длинную статью или видео со страницы.</li>
+</ul>
+<div class="key"><b>Правила безопасности.</b> Следите за действиями Claude, особенно на сайтах с деньгами и личными данными. Подтверждайте оплату и отправку форм сами. Не давайте доступ к онлайн-банку.</div>`,
+      uses: [['Покупки', 'Сравнение цен и характеристик в нескольких магазинах.'], ['Карьера', 'Сбор подходящих вакансий в одну таблицу.']],
+      prompts: ['Открой сайт с вакансиями и собери 15 вакансий «[должность]» в [город] с зарплатой от [сумма]. Сделай таблицу: компания, зарплата, требования, ссылка.'],
+      task: 'Если у вас платный тариф и Chrome, установите расширение и поручите одну рутинную задачу на сайте, наблюдая за процессом.'
+    },
+    {
+      id: 'm4l4', t: 'Claude в Excel, Word, PowerPoint и Outlook', min: 7, tier: 'paid',
+      body: `
+<p>Для пакета Microsoft 365 есть <b>надстройки Claude</b>: боковая панель прямо внутри Excel, Word, PowerPoint и Outlook. Claude видит открытый файл и может его менять.</p>
+<ul>
+<li><b>Excel:</b> писать формулы, строить сводные таблицы и графики, находить ошибки в расчётах.</li>
+<li><b>Word:</b> редактировать текст с режимом правок и комментариями, приводить к стилю документа.</li>
+<li><b>PowerPoint:</b> создавать и править слайды в вашем шаблоне.</li>
+<li><b>Outlook:</b> разбирать входящие, писать ответы вашим тоном, искать время для встреч.</li>
+</ul>
+<p>Главное преимущество в том, что надстройки делят контекст между приложениями. Можно попросить: «Возьми цифры из этой таблицы и сделай слайд», и Claude перенесёт данные сам.</p>
+<p class="note">Установка: в любом приложении Office откройте «Надстройки» и найдите Claude от Anthropic. Нужен платный тариф Claude.</p>`,
+      uses: [['Работа', 'Отчёт: данные в Excel → выводы в Word → слайды в PowerPoint без копирования.'], ['Финансы', 'Формулы в личной таблице без знания Excel.']],
+      prompts: ['(В Excel) Объясни, что считает эта таблица, найди ошибки в формулах и добавь итоговую строку по месяцам.', '(В Word) Сократи этот документ на треть, сохранив все цифры и сроки. Покажи изменения в режиме правок.'],
+      task: 'Если вы работаете в Office, установите надстройку и попросите Claude объяснить одну сложную таблицу или документ.'
+    }
+  ],
+  quiz: [
+    { q: 'Что дают коннекторы?', a: ['Доступ Claude к вашим сервисам: почте, календарю, файлам', 'Более быстрый интернет', 'Бесплатный тариф'], c: 0, e: 'Коннектор подключает сервис, и Claude сам берёт оттуда данные.' },
+    { q: 'Claude в браузере заполнил форму оплаты. Что дальше?', a: ['Пусть подтвердит сам', 'Проверить данные и подтвердить оплату самостоятельно', 'Отключить интернет'], c: 1, e: 'Финансовые действия всегда подтверждает человек.' },
+    { q: 'Главное преимущество надстроек Office?', a: ['Красивые иконки', 'Общий контекст между Excel, Word, PowerPoint и Outlook', 'Не нужен компьютер'], c: 1, e: 'Данные переносятся между приложениями без копирования.' }
+  ]
+});
+
+COURSE.push({
+  id: 'm5', num: 5, week: 'Неделя 5', title: 'Навыки: научите Claude своим процессам',
+  goal: 'Сохранять удачные инструкции как навыки, чтобы повторяющиеся задачи выполнялись одной командой.',
+  lessons: [
+    {
+      id: 'm5l1', t: 'Что такое навык', min: 6, tier: 'free',
+      body: `
+<p><b>Навык</b> (skill) — сохранённая инструкция, которую Claude применяет по команде или автоматически, когда видит подходящую задачу. Это как обучить сотрудника один раз, а дальше он делает правильно сам.</p>
+<h3>Пример</h3>
+<p>Вы каждую неделю пишете отчёт для руководителя, и каждый раз объясняете: «структура такая, тон такой, не больше страницы, в конце риски». С навыком «/отчёт» достаточно вставить заметки и написать команду. Всё остальное Claude уже знает.</p>
+<h3>Встроенные навыки</h3>
+<p>У Claude уже есть навыки, которые работают без настройки: создание документов Word, таблиц Excel, презентаций PowerPoint, PDF. Ваши собственные навыки работают рядом с ними.</p>
+<div class="key"><b>Правило трёх раз.</b> Если вы объяснили Claude одно и то же в третий раз, пора сделать из этого навык.</div>`,
+      uses: [['Работа', 'Еженедельный отчёт, протокол встречи, ответ на типовую жалобу.'], ['Дом', 'Меню на неделю с учётом предпочтений семьи и бюджета.']],
+      prompts: ['Помоги мне найти задачи, для которых стоит сделать навыки. Я [кто вы]. Задай 5 вопросов о моих повторяющихся делах и предложи 3 навыка с описанием.'],
+      task: 'Выпишите 3 задачи, которые вы регулярно просите у Claude или делаете вручную по одному шаблону.'
+    },
+    {
+      id: 'm5l2', t: 'Создаём свой навык', min: 10, tier: 'free',
+      body: `
+<p>Создать навык можно двумя способами.</p>
+<h3>Способ 1. Попросить Claude</h3>
+<p>Проведите задачу в чате до хорошего результата, а потом напишите: <b>«Сделай из этого навык»</b>. Claude сам сформулирует инструкцию и предложит сохранить её.</p>
+<h3>Способ 2. В настройках</h3>
+<p>В боковой панели откройте раздел настройки (Customize), затем «Навыки» (Skills), и создайте навык: дайте ему название, короткое описание «когда использовать» и инструкцию по шагам.</p>
+<h3>Из чего состоит хороший навык</h3>
+<ol>
+<li><b>Название</b>: короткое, по делу: «протокол-встречи».</li>
+<li><b>Описание</b>: когда применять: «Когда я присылаю заметки со встречи».</li>
+<li><b>Шаги</b>: что делать по порядку.</li>
+<li><b>Формат результата</b> и пример.</li>
+</ol>
+<pre class="code">Название: протокол-встречи
+Когда использовать: я присылаю черновые заметки со встречи
+Шаги:
+1. Выдели участников, дату и тему
+2. Сформулируй принятые решения (каждое одним предложением)
+3. Составь таблицу задач: что, кто, срок
+4. Отдельно выпиши открытые вопросы
+Формат: не больше одной страницы, без вступлений</pre>
+<p>Навыки, созданные на claude.ai, работают и в приложении для компьютера, и в надстройках Office.</p>`,
+      uses: [['Работа', 'Протоколы встреч, ответы клиентам, отчёты по шаблону.'], ['Учёба', 'Конспект лекции в одном и том же удобном формате.']],
+      prompts: ['Вот мои заметки со встречи: [вставьте]. Оформи протокол: решения, задачи (что, кто, срок), открытые вопросы.', 'Отлично, именно так. Сделай из этого навык, чтобы в следующий раз я просто присылал заметки.'],
+      task: 'Создайте свой первый навык для одной из задач из прошлого урока и проверьте его на новом примере.'
+    },
+    {
+      id: 'm5l3', t: 'Плагины и готовые наборы', min: 6, tier: 'paid',
+      body: `
+<p><b>Плагин</b> — набор навыков, подключений и инструкций, упакованный в один пакет и устанавливаемый одной кнопкой. Плагины создают Anthropic, компании и опытные пользователи под разные профессии: финансы, продажи, юристы, маркетинг, разработка.</p>
+<h3>Зачем это вам</h3>
+<ul>
+<li><b>Не изобретать заново.</b> Готовый плагин для вашей профессии уже содержит проверенные приёмы.</li>
+<li><b>Работать командой.</b> Если вы руководитель, соберите свои навыки в плагин и раздайте сотрудникам: все будут работать по одному стандарту.</li>
+<li><b>Масштабировать опыт.</b> Ваши лучшие методики превращаются в инструмент, который работает без вас.</li>
+</ul>
+<div class="key"><b>Совет.</b> Устанавливайте только то, что нужно. Лишние плагины добавляют шум, и Claude может выбрать не тот навык.</div>`,
+      uses: [['Работа', 'Плагин для вашей профессии из каталога.'], ['Команда', 'Единый стандарт ответов клиентам для всех сотрудников.']],
+      prompts: ['Я руководитель небольшой команды [чем занимается]. Какие 5 навыков стоило бы собрать в общий плагин, чтобы сотрудники работали по единому стандарту?'],
+      task: 'Посмотрите каталог плагинов и найдите один, который подходит к вашей профессии или увлечению.'
+    }
+  ],
+  quiz: [
+    { q: 'Когда стоит создать навык?', a: ['Для любого вопроса', 'Когда объясняете одно и то же в третий раз', 'Только для программистов'], c: 1, e: 'Навык окупается на повторяющихся задачах.' },
+    { q: 'Самый простой способ создать навык?', a: ['Написать программу', 'Довести задачу до результата в чате и сказать «Сделай из этого навык»', 'Купить в магазине'], c: 1, e: 'Claude сам оформит удачный диалог в навык.' },
+    { q: 'Что такое плагин?', a: ['Пакет из навыков и подключений, устанавливаемый одной кнопкой', 'Тип файла', 'Платная модель'], c: 0, e: 'Плагин упаковывает готовый набор для конкретной работы.' }
+  ]
+});
+
+COURSE.push({
+  id: 'm6', num: 6, week: 'Неделя 6', title: 'Автоматизация: Claude работает, пока вы заняты',
+  goal: 'Поручать Claude задачи, которые он выполняет самостоятельно: по расписанию, по сообщению с телефона, на вашем компьютере.',
+  lessons: [
+    {
+      id: 'm6l1', t: 'Claude выполняет задачи сам', min: 8, tier: 'paid',
+      body: `
+<p>В приложении Claude для компьютера можно не просто общаться, а <b>поручать многошаговые задачи</b>. Вы указываете папку на компьютере и описываете результат, а Claude сам читает файлы, создаёт новые, переименовывает, сводит данные и сообщает, когда всё готово.</p>
+<h3>Примеры поручений</h3>
+<ul>
+<li>«В папке «Чеки» 60 фото. Сделай таблицу расходов по датам и категориям».</li>
+<li>«Разбери папку «Загрузки»: разложи файлы по типам, дубликаты отдельно».</li>
+<li>«Из этих 10 резюме составь сравнительную таблицу кандидатов».</li>
+<li>«Собери из заметок в этой папке черновик книги рецептов семьи».</li>
+</ul>
+<div class="key"><b>Безопасность.</b> Давайте доступ к конкретной папке, а не ко всему компьютеру. Важные файлы сначала скопируйте.</div>`,
+      uses: [['Дом', 'Разбор фото и документов, семейный архив.'], ['Работа', 'Обработка пачки однотипных файлов.']],
+      prompts: ['В папке [название] лежат сканы чеков за месяц. Создай таблицу: дата, магазин, сумма, категория. В конце итог по категориям.'],
+      task: 'Выберите папку с беспорядком и поручите Claude навести в ней порядок (на копии файлов).'
+    },
+    {
+      id: 'm6l2', t: 'Задачи по расписанию', min: 8, tier: 'paid',
+      body: `
+<p><b>Плановая задача</b> — поручение, которое Claude выполняет сам с заданной периодичностью: каждое утро, раз в неделю, первого числа месяца.</p>
+<h3>Идеи</h3>
+<ul>
+<li>Каждое утро в 8:00: сводка дня (встречи, важные письма, погода).</li>
+<li>Каждый понедельник: дайджест новостей по вашей теме с выводами.</li>
+<li>Первого числа: напоминание об обязательных платежах и итог прошлого месяца.</li>
+<li>Каждую пятницу: обзор выполненного за неделю и план на следующую.</li>
+</ul>
+<h3>Как создать</h3>
+<p>Попросите в чате: «Каждый понедельник в 9 утра присылай мне...». Claude уточнит детали и создаст задачу. Все плановые задачи видны в отдельном разделе, их можно приостановить или удалить.</p>
+<p class="note">Одни задачи выполняются в облаке и работают при выключенном компьютере, другие запускаются на компьютере и требуют, чтобы он был включён, а приложение открыто. При создании Claude скажет, какой вариант получился.</p>`,
+      uses: [['Работа', 'Утренний брифинг вместо 30 минут разбора.'], ['Саморазвитие', 'Еженедельная подборка статей по интересной теме.']],
+      prompts: ['Создай плановую задачу: каждый понедельник в 8:45 присылай мне подборку из 5 главных новостей о нейросетях за неделю с объяснением простыми словами и одной идеей, как это применить в жизни.'],
+      task: 'Создайте одну плановую задачу, которая сэкономит вам время в ближайшую неделю.'
+    },
+    {
+      id: 'm6l3', t: 'Поручения с телефона', min: 5, tier: 'paid',
+      body: `
+<p>Функция <b>Dispatch</b> позволяет отправить задачу с телефона, а выполнит её приложение Claude на вашем компьютере, со всеми его файлами и программами. Пишете из машины или очереди, а к возвращению домой результат готов.</p>
+<ul>
+<li>«Подготовь презентацию к завтрашней встрече на основе отчёта в папке «Проекты»».</li>
+<li>«Найди в документах на компьютере договор страховки и напомни дату окончания».</li>
+</ul>
+<p class="note">Компьютер должен быть включён, а приложение Claude открыто. Нужны последние версии приложения на компьютере и телефоне.</p>`,
+      uses: [['Работа', 'Подготовка материалов, пока вы в дороге.']],
+      prompts: ['(С телефона) Возьми файл «Отчёт_сентябрь» из папки «Работа» и сделай из него 5 слайдов для завтрашней встречи. Пришли, когда будет готово.'],
+      task: 'Отправьте одну простую задачу с телефона и проверьте результат на компьютере.'
+    },
+    {
+      id: 'm6l4', t: 'Управление компьютером и правила доверия', min: 7, tier: 'paid',
+      body: `
+<p>Claude может <b>видеть экран и управлять программами</b> на вашем компьютере: щёлкать мышью, печатать, переключать окна. Это нужно для программ, у которых нет других способов подключения.</p>
+<h3>Правила доверия к автоматизации</h3>
+<ol>
+<li><b>Начинайте с чтения.</b> Сначала задачи, где Claude только собирает и анализирует.</li>
+<li><b>Смотрите первые запуски.</b> Пока не убедитесь, что всё работает как задумано.</li>
+<li><b>Просите журнал.</b> В конце каждой задачи: «перечисли, что ты сделал и что изменил».</li>
+<li><b>Деньги и отправка подтверждаются вручную.</b> Платежи, письма, публикации.</li>
+<li><b>Расширяйте права постепенно,</b> через несколько недель стабильной работы.</li>
+</ol>`,
+      uses: [['Работа', 'Перенос данных между программами без интеграции.']],
+      prompts: ['Прежде чем выполнять задачу, опиши план действий по шагам и дождись моего подтверждения. В конце перечисли всё, что ты изменил.'],
+      task: 'Добавьте фразу про план и журнал к одной из своих плановых задач.'
+    }
+  ],
+  quiz: [
+    { q: 'Как безопаснее поручить Claude разбор файлов?', a: ['Дать доступ ко всему компьютеру', 'Дать доступ к одной папке и сначала сделать копию важных файлов', 'Выключить антивирус'], c: 1, e: 'Минимальный доступ плюс резервная копия.' },
+    { q: 'Плановая задача — это…', a: ['Напоминание в календаре', 'Поручение, которое Claude выполняет сам по расписанию', 'Задача в списке дел'], c: 1, e: 'Claude сам запускает работу в нужное время.' },
+    { q: 'Что нужно подтверждать вручную даже при полной автоматизации?', a: ['Ничего', 'Платежи, отправку писем и публикации', 'Чтение файлов'], c: 1, e: 'Необратимые действия всегда за человеком.' }
+  ]
+});
+
+COURSE.push({
+  id: 'm7', num: 7, week: 'Неделя 7', title: 'Claude Code: создаём программы без опыта',
+  goal: 'Понять, что такое Claude Code, и сделать первый небольшой проект, даже если вы никогда не программировали.',
+  lessons: [
+    {
+      id: 'm7l1', t: 'Что такое Claude Code и нужен ли он вам', min: 7, tier: 'paid',
+      body: `
+<p><b>Claude Code</b> — режим, в котором Claude работает как программист: создаёт файлы проекта, пишет код, запускает и проверяет его, исправляет ошибки. Вы описываете, что хотите получить, обычными словами.</p>
+<h3>Где он находится</h3>
+<ul>
+<li>Вкладка Code в приложении Claude для компьютера.</li>
+<li>Веб-версия на claude.ai/code.</li>
+<li>Для опытных: терминал и редактор кода VS Code.</li>
+</ul>
+<h3>Кому пригодится</h3>
+<ul>
+<li>Тем, кто хочет сделать <b>свой сайт</b>, лендинг или портфолио.</li>
+<li>Владельцам малого бизнеса: простая система записи клиентов, калькулятор услуг, бот.</li>
+<li>Тем, кто хочет <b>автоматизировать рутину</b> скриптом: переименовать тысячу файлов, обработать таблицы.</li>
+<li>Тем, кто думает о <b>новой профессии</b> или своём цифровом продукте.</li>
+</ul>
+<p>Если вам достаточно мини-приложений из Модуля 2, Claude Code можно отложить. Он нужен, когда проект больше одной страницы.</p>`,
+      uses: [['Свой бизнес', 'Сайт с формой заявки и прайсом.'], ['Карьера', 'Портфолио и первые шаги в IT.']],
+      prompts: ['Я никогда не программировал. Объясни, что я могу сделать с помощью Claude Code за выходные, и предложи 5 идей небольших проектов для [ваша сфера].'],
+      task: 'Выберите одну идею небольшого проекта: сайт, калькулятор, бот или скрипт для рутины.'
+    },
+    {
+      id: 'm7l2', t: 'Первый проект шаг за шагом', min: 12, tier: 'paid',
+      body: `
+<p>Главный секрет успеха: <mark>сначала договоритесь о плане, потом стройте</mark>. Новички просят «сделай сайт» и получают не то. Опытные пользователи сначала обсуждают, что нужно.</p>
+<h3>Пять шагов</h3>
+<ol>
+<li><b>Интервью.</b> Попросите Claude расспросить вас о проекте и записать задание в файл SPEC.md.</li>
+<li><b>План.</b> Включите режим планирования: Claude опишет, что и в каком порядке сделает, но ничего не изменит, пока вы не одобрите.</li>
+<li><b>Сборка.</b> Одобрите план и наблюдайте. Claude создаёт файлы и сам их проверяет.</li>
+<li><b>Проверка.</b> Попросите открыть результат в браузере и показать снимок экрана. Попросите проверить, всё ли работает.</li>
+<li><b>Правки.</b> Говорите, что поменять: «кнопку больше», «добавь раздел отзывов».</li>
+</ol>
+<div class="key"><b>Правило качества.</b> Дайте Claude способ проверить себя: «после изменений открой страницу и убедись, что форма отправляется». Просите доказательство, а не заверение «всё готово».</div>`,
+      uses: [['Свой бизнес', 'Сайт мастера маникюра с ценами и записью.'], ['Семья', 'Сайт-альбом семейной поездки.']],
+      prompts: ['Я хочу сделать одностраничный сайт для [кто вы / чем занимаетесь]. Проинтервьюируй меня подробно: цель, аудитория, разделы, стиль, контакты. Когда соберёшь всё, запиши задание в SPEC.md.', 'Сделай по SPEC.md. Сначала покажи план и дождись моего «да». После сборки открой страницу, сделай снимок экрана и перечисли, что проверил.'],
+      task: 'Сделайте свой первый мини-проект по пяти шагам.'
+    },
+    {
+      id: 'm7l3', t: 'Приёмы опытных пользователей', min: 10, tier: 'paid',
+      body: `
+<p>Эти термины постоянно встречаются в обучающих видео. Вот что они значат простыми словами.</p>
+<table class="tbl"><thead><tr><th>Термин</th><th>Простыми словами</th></tr></thead><tbody>
+<tr><td><b>CLAUDE.md</b></td><td>Памятка проекта: правила, которые Claude читает в начале каждой работы. Создаётся командой /init.</td></tr>
+<tr><td><b>Контекст</b></td><td>Всё, что Claude держит «в голове» в текущем разговоре. Когда его слишком много, качество падает. Команда /clear начинает с чистого листа.</td></tr>
+<tr><td><b>Режим планирования</b></td><td>Claude исследует и предлагает план, ничего не меняя. Переключается клавишами Shift+Tab.</td></tr>
+<tr><td><b>Откат</b></td><td>Двойное нажатие Esc или /rewind возвращает проект в состояние до неудачного шага.</td></tr>
+<tr><td><b>Навыки</b></td><td>Те же навыки, что в Модуле 5: инструкции для повторяющихся задач.</td></tr>
+<tr><td><b>Субагенты</b></td><td>Помощники, которым Claude поручает отдельную часть работы: проверить, поискать, сравнить. Лучше всего работают на конкретных задачах, а не в «ролях».</td></tr>
+<tr><td><b>Хуки</b></td><td>Действия, которые выполняются автоматически всегда: например, проверка после каждого изменения.</td></tr>
+<tr><td><b>MCP-серверы</b></td><td>Подключения к внешним сервисам: базам данных, браузеру, документации.</td></tr>
+</tbody></table>
+<h3>Три привычки</h3>
+<ul>
+<li>Одна задача — одна сессия. Для новой темы используйте /clear.</li>
+<li>Если поправили Claude дважды без результата, начните заново с более точного запроса.</li>
+<li>Перед публикацией попросите проверку в новой сессии свежим взглядом.</li>
+</ul>`,
+      uses: [['Любой проект', 'Меньше ошибок и переделок.']],
+      prompts: ['Создай CLAUDE.md для этого проекта: правила, которые помогут тебе не ошибаться в будущем. Не длиннее 30 строк.', 'Начни новую проверку свежим взглядом: найди ошибки, проблемы безопасности и места, где сайт плохо выглядит на телефоне.'],
+      task: 'Добавьте в свой проект CLAUDE.md и попросите независимую проверку.'
+    }
+  ],
+  quiz: [
+    { q: 'С чего начать проект в Claude Code?', a: ['Сразу «сделай сайт»', 'С интервью и плана', 'С покупки сервера'], c: 1, e: 'План до сборки экономит время на переделках.' },
+    { q: 'Что делает команда /clear?', a: ['Удаляет проект', 'Начинает разговор с чистого контекста', 'Очищает экран'], c: 1, e: 'Свежий контекст повышает качество на новой задаче.' },
+    { q: 'Как лучше использовать субагентов?', a: ['Давать им роли: «дизайнер», «менеджер»', 'Давать конкретные задачи: проверить, найти, сравнить', 'Не использовать никогда'], c: 1, e: 'Практики сходятся: задачи работают лучше ролей.' }
+  ]
+});
+
+COURSE.push({
+  id: 'm8', num: 8, week: 'Неделя 8', title: 'Свой продукт на основе Claude',
+  goal: 'Понять, как ваш опыт и навыки работы с Claude превращаются в продукт, сервис или новый источник дохода.',
+  lessons: [
+    {
+      id: 'm8l1', t: 'Что такое API и зачем он', min: 7, tier: 'paid',
+      body: `
+<p><b>API</b> — способ встроить Claude в свою программу, сайт или бота. Пользователи вашего продукта не заходят на claude.ai: они общаются с вашим сервисом, а внутри него работает Claude.</p>
+<h3>Что строят на API</h3>
+<ul>
+<li>Чат-бот на сайте, который отвечает клиентам по вашему прайсу и правилам.</li>
+<li>Сервис, который проверяет документы или заполняет заявки.</li>
+<li>Бот-репетитор для конкретного предмета.</li>
+<li>Автоматическая обработка входящих заявок, писем, отзывов.</li>
+</ul>
+<p>Оплата за API идёт отдельно от подписки: за объём обработанного текста. Для небольших проектов это обычно недорого, но считать расходы нужно заранее.</p>
+<p class="note">Для разработки агентов есть Agent SDK: тот же «движок», что у Claude Code, для ваших собственных программ.</p>`,
+      uses: [['Свой бизнес', 'Бот, отвечающий клиентам 24/7.'], ['Новое дело', 'Нишевый сервис для вашей профессии.']],
+      prompts: ['Я хочу сделать бота, который отвечает клиентам [вид бизнеса] на частые вопросы и записывает их. Опиши простыми словами: из чего он состоит, сколько примерно стоит в месяц, с чего начать.'],
+      task: 'Опишите идею продукта в 5 предложениях: для кого, какую проблему решает, как работает.'
+    },
+    {
+      id: 'm8l2', t: 'От навыка к продукту', min: 8, tier: 'mixed',
+      body: `
+<p>Большинство успешных продуктов на нейросетях начинаются не с кода, а с <b>экспертизы</b>. Вы лучше других знаете свою профессию, и эти знания можно упаковать.</p>
+<h3>Лестница развития</h3>
+<ol>
+<li><b>Навык для себя.</b> Ваш процесс в виде навыка Claude. Экономит ваше время.</li>
+<li><b>Плагин для команды.</b> Тот же процесс для коллег. Экономит время всей команды.</li>
+<li><b>Шаблон или курс.</b> Ваши навыки и промпты для людей вашей профессии. Первые продажи.</li>
+<li><b>Прототип на API.</b> Сервис, которым пользуются без Claude. Проверка спроса.</li>
+<li><b>Продукт.</b> Платный сервис с клиентами.</li>
+</ol>
+<div class="key"><b>Совет.</b> На каждом шаге проверяйте, готовы ли люди платить, прежде чем вкладываться в следующий.</div>`,
+      uses: [['Карьера', 'Консультации по внедрению нейросетей в вашей отрасли.'], ['Бизнес', 'Продажа шаблонов и навыков для профессии.']],
+      prompts: ['Я работаю [профессия] [N] лет. Помоги найти 5 идей продуктов на основе нейросетей, которые используют мою экспертизу. Для каждой: кто клиент, что он получает, как проверить спрос за 2 недели без больших вложений.'],
+      task: 'Выберите одну идею и спланируйте её проверку на ближайшие 2 недели.'
+    },
+    {
+      id: 'm8l3', t: 'Расчёт, риски и следующий шаг', min: 6, tier: 'free',
+      body: `
+<p>Перед запуском продукта на нейросети ответьте на пять вопросов:</p>
+<ol>
+<li><b>Экономика.</b> Сколько стоит обработка одного клиента и сколько он платит?</li>
+<li><b>Качество.</b> Что произойдёт, если нейросеть ошибётся? Кто проверяет результат?</li>
+<li><b>Данные.</b> Какие данные клиентов вы обрабатываете и законно ли это в вашей стране?</li>
+<li><b>Зависимость.</b> Что будет, если поменяются цены или условия сервиса?</li>
+<li><b>Ценность.</b> Почему клиент заплатит вам, а не будет пользоваться Claude напрямую?</li>
+</ol>
+<p>Последний вопрос самый важный. Ответ обычно в экспертизе, удобстве и ответственности: вы знаете отрасль, вы настроили всё под задачу, вы отвечаете за результат.</p>`,
+      uses: [['Бизнес', 'Трезвая оценка идеи до вложений.']],
+      prompts: ['Вот моя идея продукта: [описание]. Сыграй роль скептичного инвестора: задай 10 неудобных вопросов и укажи 3 главных риска.'],
+      task: 'Проверьте свою идею с помощью «скептичного инвестора» и запишите выводы.'
+    }
+  ],
+  quiz: [
+    { q: 'Что такое API?', a: ['Способ встроить Claude в свой сервис', 'Мобильное приложение', 'Тариф подписки'], c: 0, e: 'Через API ваш продукт использует Claude внутри.' },
+    { q: 'С чего обычно начинается продукт на нейросети?', a: ['С покупки серверов', 'С вашей экспертизы и навыка для себя', 'С рекламы'], c: 1, e: 'Сначала проверенный процесс, потом упаковка.' },
+    { q: 'Главный вопрос перед запуском?', a: ['Какой цвет у логотипа', 'Почему клиент заплатит вам, а не пойдёт в Claude напрямую', 'Сколько у вас подписчиков'], c: 1, e: 'Ценность должна быть понятна клиенту.' }
+  ]
+});
+
+// ===== План на 8 недель =====
+const ROADMAP = [
+  { w: 1, t: 'Знакомство', m: ['m0', 'm1'], d: 'Аккаунт, формула запроса, первые диалоги. Создать 1–2 проекта, настроить память и предпочтения, попробовать голосовой режим.' },
+  { w: 2, t: 'Готовые результаты', m: ['m2'], d: 'Документ, таблица бюджета, презентация, одно мини-приложение.' },
+  { w: 3, t: 'Поиск и анализ', m: ['m3'], d: 'Поиск с источниками, одно глубокое исследование, анализ своей таблицы или выписки.' },
+  { w: 4, t: 'Подключения', m: ['m4'], d: 'Почта, календарь, облачный диск. По возможности — браузер и Office.' },
+  { w: 5, t: 'Навыки', m: ['m5'], d: 'Три собственных навыка для повторяющихся задач.' },
+  { w: 6, t: 'Автоматизация', m: ['m6'], d: 'Две плановые задачи, одно поручение с телефона.' },
+  { w: 7, t: 'Claude Code', m: ['m7'], d: 'Первый мини-проект: сайт, калькулятор или скрипт.' },
+  { w: 8, t: 'Свой продукт', m: ['m8'], d: 'Идея продукта, проверка спроса, решение о следующем шаге.' }
+];
+
+// ===== Словарь =====
+const GLOSSARY = [
+  ['Нейросеть', 'Программа, которая обучилась на огромном объёме текстов и умеет понимать и создавать текст, как человек.'],
+  ['Модель', 'Конкретная версия нейросети. У Claude есть старшие, средние и быстрые модели.'],
+  ['Промпт', 'Ваш запрос к нейросети: вопрос, задача, инструкция.'],
+  ['Контекст', 'Всё, что Claude учитывает в текущем разговоре: ваши сообщения, файлы, инструкции.'],
+  ['Галлюцинация', 'Уверенно звучащий, но неверный ответ нейросети. Поэтому важные факты нужно проверять.'],
+  ['Проект', 'Папка для чатов на одну тему с общими файлами и инструкциями.'],
+  ['Память', 'Функция, благодаря которой Claude помнит факты о вас между разговорами.'],
+  ['Инкогнито', 'Чат, который не сохраняется в историю и память.'],
+  ['Артефакт', 'Готовый результат в отдельной панели: документ, таблица, презентация, приложение.'],
+  ['Веб-поиск', 'Режим, в котором Claude ищет свежую информацию в интернете и даёт ссылки.'],
+  ['Исследование (Research)', 'Многошаговый поиск по десяткам источников с итоговым отчётом.'],
+  ['Коннектор', 'Подключение Claude к вашему сервису: почте, календарю, диску.'],
+  ['MCP', 'Открытый стандарт, по которому работают коннекторы.'],
+  ['Навык (skill)', 'Сохранённая инструкция для повторяющейся задачи, вызывается командой.'],
+  ['Плагин', 'Пакет из навыков и подключений, который устанавливается одной кнопкой.'],
+  ['Плановая задача', 'Поручение, которое Claude выполняет сам по расписанию.'],
+  ['Dispatch', 'Отправка задачи с телефона на выполнение в приложении на компьютере.'],
+  ['Claude Code', 'Режим, в котором Claude пишет и запускает программы.'],
+  ['CLAUDE.md', 'Файл-памятка с правилами проекта для Claude Code.'],
+  ['Субагент', 'Помощник, которому Claude поручает отдельную часть работы.'],
+  ['Хук', 'Действие, которое автоматически выполняется при определённом событии в Claude Code.'],
+  ['API', 'Способ встроить Claude в свою программу или сервис.'],
+  ['Токен', 'Единица текста (примерно часть слова), в которой считается объём работы нейросети и стоимость API.']
+];
+
+// ===== Об авторе =====
+// photo: data:URI фотографии автора; пока пусто — показывается монограмма
+const AUTHOR = {
+  name: 'Ильшат Фахритдинов',
+  photo: 'data:image/jpeg;base64,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',
+  role: 'Практик внедрения нейросетей в бизнес и повседневную жизнь',
+  since: 'Пользуется нейросетями с момента их выхода на массовый рынок в конце 2022 года',
+  ru: ['GigaChat', 'YandexGPT и Алиса', 'Kandinsky', 'Шедеврум'],
+  world: ['ChatGPT', 'Claude', 'Gemini', 'DeepSeek', 'Perplexity', 'Microsoft Copilot', 'Grok', 'Midjourney', 'Suno']
+};
+// ===== Логика курса: навигация, прогресс, копирование, конструктор, тесты =====
+(function () {
+  const KEY = 'claude-s-nulya-progress-v1';
+  const TIER = { free: 'Бесплатно', paid: 'Платный тариф', mixed: 'Частично бесплатно' };
+
+  // --- Прогресс хранится только в браузере пользователя; при ошибке работаем без сохранения ---
+  let state = { lessons: {}, quiz: {} };
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.lessons) state = s; } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+
+  // --- Плоский список страниц для кнопок «назад/вперёд» ---
+  const PAGES = [];
+  COURSE.forEach(m => {
+    m.lessons.forEach(l => PAGES.push({ id: l.id, mod: m, lesson: l }));
+    PAGES.push({ id: m.id + 'quiz', mod: m, quiz: true });
+  });
+  const ALL_LESSONS = PAGES.filter(p => p.lesson).length;
+
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const modDone = m => m.lessons.filter(l => state.lessons[l.id]).length;
+  const totalDone = () => Object.keys(state.lessons).filter(k => state.lessons[k]).length;
+
+  // --- Оглавление ---
+  function renderNav(cur) {
+    const pct = Math.round(totalDone() / ALL_LESSONS * 100);
+    let h = `<a class="brand" href="#home"><span class="logo">C</span><span><b>Claude с нуля</b><small>курс для новичков</small></span></a>
+      <div class="overall">Пройдено ${totalDone()} из ${ALL_LESSONS} уроков · ${pct}%<div class="bar"><i style="width:${pct}%"></i></div></div>
+      <div class="nav-top">
+        <a class="nav-link ${cur === 'home' ? 'on' : ''}" href="#home">Как устроен курс</a>
+        <a class="nav-link ${cur === 'plan' ? 'on' : ''}" href="#plan">План на 8 недель</a>
+        <a class="nav-link ${cur === 'glossary' ? 'on' : ''}" href="#glossary">Словарь терминов</a>
+        <a class="nav-link ${cur === 'author' ? 'on' : ''}" href="#author">Об авторе</a>
+      </div>`;
+    COURSE.forEach(m => {
+      const open = cur.startsWith(m.id);
+      h += `<div class="mod"><button class="mod-h" data-mod="${m.id}" aria-expanded="${open}">
+          <span class="mod-n">${String(m.num).padStart(2, '0')}</span><span class="mod-t">${esc(m.title)}</span>
+          <span class="mod-p">${modDone(m)}/${m.lessons.length}</span></button>
+        <ul ${open ? '' : 'hidden'} id="ul-${m.id}">`;
+      m.lessons.forEach(l => {
+        h += `<li><a href="#${l.id}" class="${cur === l.id ? 'on' : ''}"><span class="dot ${state.lessons[l.id] ? 'done' : ''}"></span>${esc(l.t)}</a></li>`;
+      });
+      const qs = state.quiz[m.id];
+      h += `<li><a href="#${m.id}quiz" class="${cur === m.id + 'quiz' ? 'on' : ''}"><span class="dot ${qs !== undefined ? 'done' : ''}"></span>Проверка знаний${qs !== undefined ? ` · ${qs}/${m.quiz.length}` : ''}</a></li></ul></div>`;
+    });
+    $('#side').innerHTML = h;
+    // Раскрытие модулей в оглавлении
+    document.querySelectorAll('.mod-h').forEach(b => b.addEventListener('click', () => {
+      const ul = $('#ul-' + b.dataset.mod); ul.hidden = !ul.hidden; b.setAttribute('aria-expanded', String(!ul.hidden));
+    }));
+  }
+
+  // --- Кнопки «назад / вперёд» ---
+  function pager(id) {
+    const i = PAGES.findIndex(p => p.id === id);
+    const prev = PAGES[i - 1], next = PAGES[i + 1];
+    const name = p => p.quiz ? 'Проверка знаний: ' + p.mod.title : p.lesson.t;
+    return `<nav class="pager">${prev ? `<a href="#${prev.id}"><small>← Назад</small>${esc(name(prev))}</a>` : '<span></span>'}
+      ${next ? `<a class="next" href="#${next.id}"><small>Дальше →</small>${esc(name(next))}</a>` : `<a class="next" href="#plan"><small>Курс пройден →</small>План на 8 недель</a>`}</nav>`;
+  }
+
+  // --- Страница урока ---
+  function renderLesson(p) {
+    const m = p.mod, l = p.lesson, n = m.lessons.indexOf(l) + 1;
+    let h = `<div class="crumb"><span>Модуль ${m.num} · Урок ${n} из ${m.lessons.length}</span><span>${l.min} мин</span><span class="tag ${l.tier}">${TIER[l.tier]}</span></div>
+      <h1>${esc(l.t)}</h1>${l.body}`;
+    if (l.builder) h += builderHTML();
+    h += `<section class="block"><div class="block-h">Где пригодится</div><div class="uses">${l.uses.map(u => `<div class="use"><b>${esc(u[0])}</b>${esc(u[1])}</div>`).join('')}</div></section>`;
+    h += `<section class="block"><div class="block-h">Попробуйте: скопируйте и вставьте в Claude</div>${l.prompts.map(t => `<div class="prompt"><div class="who">Вы пишете</div><p>${esc(t)}</p><button class="copy" data-text="${esc(t)}">Копировать</button></div>`).join('')}
+      <p class="note">Текст в квадратных скобках замените своими данными.</p></section>`;
+    h += `<section class="block task"><b>Практика</b>${esc(l.task)}</section>`;
+    const done = !!state.lessons[l.id];
+    h += `<div class="done-row"><span>${done ? 'Урок отмечен как пройденный.' : 'Выполнили практику? Отметьте урок.'}</span>
+      <button class="btn ${done ? 'ok' : 'primary'}" id="mark">${done ? '✓ Пройдено' : 'Отметить пройденным'}</button></div>${pager(l.id)}`;
+    return h;
+  }
+
+  // --- Конструктор запроса (урок 0.3) ---
+  function builderHTML() {
+    return `<div class="builder" id="builder">
+      <label for="b-ctx">1. Контекст <span>Кто вы и в какой ситуации</span><input id="b-ctx" placeholder="Я учитель начальных классов, готовлюсь к родительскому собранию"></label>
+      <label for="b-task">2. Задача <span>Что сделать, одним глаголом</span><input id="b-task" placeholder="Напиши вступительную речь"></label>
+      <label for="b-det">3. Детали <span>Что учесть, чего избегать</span><textarea id="b-det" placeholder="Тема: поведение детей на переменах. Тон доброжелательный, без упрёков родителям"></textarea></label>
+      <label for="b-fmt">4. Формат <span>Как должен выглядеть результат</span><input id="b-fmt" placeholder="Не больше 2 минут речи, 3 ключевые мысли"></label>
+      <label for="b-ex">5. Пример <span>Необязательно: образец, который нравится</span><input id="b-ex" placeholder=""></label>
+      <div class="block-h" style="margin:4px 0 0">Ваш запрос</div>
+      <div class="out" id="b-out">Заполните поля выше</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn primary" id="b-copy">Копировать запрос</button><span class="quality" id="b-q"></span></div>
+    </div>`;
+  }
+  function bindBuilder() {
+    const f = ['ctx', 'task', 'det', 'fmt', 'ex'].map(k => $('#b-' + k));
+    const upd = () => {
+      const [c, t, d, fm, ex] = f.map(x => x.value.trim());
+      const parts = [];
+      if (c) parts.push(c.replace(/\.?$/, '.'));
+      if (t) parts.push(t.replace(/\.?$/, '.'));
+      if (d) parts.push(d.replace(/\.?$/, '.'));
+      if (fm) parts.push('Формат: ' + fm.replace(/\.?$/, '.'));
+      if (ex) parts.push('Пример того, что мне нравится: ' + ex);
+      $('#b-out').textContent = parts.length ? parts.join(' ') : 'Заполните поля выше';
+      const filled = [c, t, d, fm].filter(Boolean).length;
+      $('#b-q').textContent = filled ? `Заполнено ${filled} из 4 основных элементов${filled === 4 ? ': сильный запрос' : ''}` : '';
+    };
+    f.forEach(x => x.addEventListener('input', upd));
+    $('#b-copy').addEventListener('click', e => copy($('#b-out').textContent, e.currentTarget, 'Копировать запрос'));
+  }
+
+  // --- Тест модуля ---
+  function renderQuiz(p) {
+    const m = p.mod;
+    let h = `<div class="crumb"><span>Модуль ${m.num}</span><span>${m.quiz.length} вопроса</span></div><h1>Проверка знаний: ${esc(m.title)}</h1>
+      <p class="lead" style="font-size:16px">Выберите ответ. Объяснение появится сразу.</p>`;
+    m.quiz.forEach((q, qi) => {
+      h += `<div class="q" data-q="${qi}"><h3>${qi + 1}. ${esc(q.q)}</h3><div class="opts">${q.a.map((a, ai) => `<button class="opt" data-a="${ai}">${esc(a)}</button>`).join('')}</div><div class="expl" hidden></div></div>`;
+    });
+    h += `<div class="score" id="score"></div>${pager(p.id)}`;
+    return h;
+  }
+  function bindQuiz(p) {
+    const m = p.mod; let answered = 0, right = 0;
+    document.querySelectorAll('.q').forEach(box => {
+      const q = m.quiz[+box.dataset.q];
+      box.querySelectorAll('.opt').forEach(b => b.addEventListener('click', () => {
+        const a = +b.dataset.a;
+        box.querySelectorAll('.opt').forEach(x => { x.disabled = true; if (+x.dataset.a === q.c) x.classList.add('right'); });
+        if (a !== q.c) b.classList.add('wrong'); else right++;
+        const ex = box.querySelector('.expl'); ex.hidden = false; ex.textContent = (a === q.c ? 'Верно. ' : 'Не совсем. ') + q.e;
+        answered++;
+        if (answered === m.quiz.length) {
+          state.quiz[m.id] = right; save(); renderNav(p.id);
+          $('#score').textContent = `Результат: ${right} из ${m.quiz.length}. ${right === m.quiz.length ? 'Отлично, можно идти дальше.' : 'Перечитайте уроки, где были ошибки.'}`;
+        }
+      }));
+    });
+  }
+
+  // --- Главная ---
+  function renderHome() {
+    const next = PAGES.find(p => p.lesson && !state.lessons[p.id]);
+    let h = `<section class="hero"><div class="eyebrow">Интерактивный курс</div>
+      <h1>Claude <em>с нуля</em></h1>
+      <p class="lead">Пошаговый курс для тех, кто ещё ни разу не пользовался нейросетями. За 8 недель вы научитесь поручать Claude письма, расчёты, документы, исследования и рутину, а в конце поймёте, как превратить эти навыки в доход.</p>
+      <div class="facts"><span><b>9</b>модулей</span><span><b>${ALL_LESSONS}</b>уроков</span><span><b>8</b>недель по 30 минут в день</span><span><b>${COURSE.reduce((s, m) => s + m.lessons.reduce((a, l) => a + l.prompts.length, 0), 0)}</b>готовых запросов</span></div>
+      <a class="btn primary" href="#${next ? next.id : 'plan'}">${totalDone() ? 'Продолжить: ' + esc(next ? next.lesson.t : 'план') : 'Начать с первого урока'} →</a></section>
+      <h2>Как проходить курс</h2>
+      <ol class="steps">
+        <li><span>Откройте урок и прочитайте его. Каждый занимает 5–12 минут.</span></li>
+        <li><span>Скопируйте готовый запрос из блока «Попробуйте» и вставьте его в Claude. Замените текст в квадратных скобках своими данными.</span></li>
+        <li><span>Выполните практическое задание на своей реальной задаче.</span></li>
+        <li><span>Отметьте урок пройденным. Прогресс сохраняется в этом браузере.</span></li>
+        <li><span>В конце модуля пройдите короткую проверку знаний.</span></li>
+      </ol>
+      <div class="key"><b>Что понадобится.</b> Сам курс открывается в любом браузере без регистрации. Для практики нужен аккаунт на claude.ai: первые модули проходятся на бесплатном тарифе. Пометка у каждого урока подскажет, нужен ли платный тариф.</div>
+      <a class="author-strip" href="#author"><span class="portrait sm">${AUTHOR.photo ? `<img src="${AUTHOR.photo}" alt="">` : `<span>${esc(AUTHOR.name[0])}</span>`}</span>
+        <span><small>Автор курса</small><b>${esc(AUTHOR.name)}</b><span>${esc(AUTHOR.role)}. Подробнее →</span></span></a>
+      <h2>Модули</h2><div class="grid-mods">`;
+    COURSE.forEach(m => {
+      const d = modDone(m), pct = Math.round(d / m.lessons.length * 100);
+      h += `<a class="card" href="#${m.lessons[0].id}"><span class="n">МОДУЛЬ ${String(m.num).padStart(2, '0')} · ${esc(m.week)}</span><span class="t">${esc(m.title)}</span><span class="w">${esc(m.goal)}</span><div class="bar"><i style="width:${pct}%"></i></div></a>`;
+    });
+    h += `</div><p class="foot">Возможности и тарифы Claude регулярно обновляются. Актуальные условия смотрите на claude.com/pricing и support.claude.com. Курс актуален на октябрь 2026.<br>
+      <button class="reset" id="reset">Сбросить мой прогресс</button> <span id="reset-confirm" hidden> · Точно? <button class="reset" id="reset-yes">Да, сбросить</button></span></p>`;
+    return h;
+  }
+
+  // --- План ---
+  function renderPlan() {
+    let h = `<div class="crumb"><span>8 недель · 30–40 минут в день</span></div><h1>План на 8 недель</h1>
+      <p class="lead" style="font-size:16px">Одна неделя — один модуль. Не торопитесь: польза появляется, когда приём входит в привычку.</p>`;
+    ROADMAP.forEach(r => {
+      const ls = r.m.flatMap(id => COURSE.find(m => m.id === id).lessons);
+      const d = ls.filter(l => state.lessons[l.id]).length;
+      h += `<div class="week"><div class="wn">НЕДЕЛЯ ${r.w}</div><div><div class="wt">${esc(r.t)}</div><div class="wd">${esc(r.d)}</div>
+        <div class="wl">${r.m.map(id => { const m = COURSE.find(x => x.id === id); return `<a href="#${m.lessons[0].id}">Модуль ${m.num}</a>`; }).join('')}</div></div>
+        <div class="wp">${d}/${ls.length}${d === ls.length ? ' ✓' : ''}</div></div>`;
+    });
+    return h;
+  }
+
+  // --- Словарь ---
+  function renderGlossary() {
+    return `<h1>Словарь терминов</h1><input class="search" id="gs" placeholder="Найти термин…" aria-label="Поиск по словарю">
+      <dl class="gl" id="gl" style="margin-top:12px">${GLOSSARY.map(g => `<div data-k="${esc((g[0] + ' ' + g[1]).toLowerCase())}"><dt>${esc(g[0])}</dt><dd>${esc(g[1])}</dd></div>`).join('')}</dl>`;
+  }
+
+  // --- Об авторе ---
+  function renderAuthor() {
+    const a = AUTHOR;
+    const pic = a.photo ? `<img src="${a.photo}" alt="${esc(a.name)}">` : `<span>${esc(a.name[0])}</span>`;
+    const chips = arr => arr.map(x => `<li>${esc(x)}</li>`).join('');
+    return `<div class="crumb"><span>Автор курса</span></div>
+      <div class="author-head"><div class="portrait">${pic}</div>
+        <div><h1 style="margin-bottom:6px">${esc(a.name)}</h1><p class="lead" style="font-size:17px;margin:0">${esc(a.role)}</p>
+        <p class="since">${esc(a.since)}</p></div></div>
+      <p>Ильшат начал работать с нейросетями в те месяцы, когда о них только начали говорить, и с тех пор прошёл весь путь вместе с отраслью: от первых осторожных экспериментов до ежедневной работы, в которой нейросети стали полноценными коллегами. Он не теоретик и не наблюдатель. Каждый приём из этого курса он сначала проверил на собственных задачах.</p>
+      <p>По профессии Ильшат — руководитель продаж в финтехе. Он построил с нуля несколько отделов продаж, создал собственный бизнес и знает цену времени, качественному решению и понятному процессу. Именно этот управленческий взгляд он переносит на работу с нейросетями: не «поиграть с новинкой», а встроить инструмент так, чтобы он приносил результат каждый день.</p>
+      <h2>С какими нейросетями работает автор</h2>
+      <div class="ai-grid">
+        <div class="ai-col"><div class="block-h">Российские</div><ul class="chips">${chips(a.ru)}</ul></div>
+        <div class="ai-col"><div class="block-h">Зарубежные</div><ul class="chips">${chips(a.world)}</ul></div>
+      </div>
+      <p>Такой широкий опыт позволяет честно сравнивать инструменты и выбирать лучший под задачу. Claude в этом курсе в центре внимания не случайно: по набору возможностей для работы с документами, исследованиями, автоматизацией и созданием собственных решений он стал для автора основным рабочим инструментом.</p>
+      <h2>Где нейросети работают в его жизни</h2>
+      <div class="uses">
+        <div class="use"><b>Рабочие процессы</b>Регламенты, скрипты, аналитика, обучение сотрудников, подготовка к переговорам и отчёты для руководства.</div>
+        <div class="use"><b>Собственный бизнес</b>Тексты и предложения для клиентов, анализ рынка, автоматизация рутины, проектирование новых сервисов.</div>
+        <div class="use"><b>Обучение и развитие</b>Изучение новых тем, языковая практика, конспекты книг и видео, личная база знаний.</div>
+        <div class="use"><b>Творчество</b>Музыкальные проекты, идеи, тексты и визуальные материалы.</div>
+        <div class="use"><b>Финансы и быт</b>Планирование бюджета, разбор документов, подготовка к важным решениям.</div>
+      </div>
+      <div class="key" style="margin-top:28px"><b>Почему этот курс.</b> Автор сам когда-то начинал с нуля и помнит, какие вопросы возникают у новичка. Поэтому курс написан простым языком, без технического жаргона, и построен на задачах, знакомых каждому: письма, бюджет, документы, учёба, свой бизнес. Цель — чтобы через 8 недель нейросеть стала для вас таким же привычным помощником, как для автора.</div>
+      <div class="pager"><a href="#home"><small>← На главную</small>Как устроен курс</a><a class="next" href="#m0l1"><small>Начать →</small>Первый урок</a></div>`;
+  }
+
+  // --- Копирование с запасным вариантом (выделение текста) ---
+  function copy(text, btn, label) {
+    const ok = () => { btn.textContent = 'Скопировано'; btn.classList.add('done'); setTimeout(() => { btn.textContent = label; btn.classList.remove('done'); }, 1600); };
+    const fallback = () => {
+      const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select();
+      try { document.execCommand('copy'); ok(); } catch (e) { btn.textContent = 'Выделите и скопируйте вручную'; }
+      t.remove();
+    };
+    try { navigator.clipboard.writeText(text).then(ok, fallback); } catch (e) { fallback(); }
+  }
+
+  // --- Роутер по #якорю ---
+  function route() {
+    const id = (location.hash || '#home').slice(1) || 'home';
+    const page = PAGES.find(p => p.id === id);
+    let html;
+    if (page && page.lesson) html = renderLesson(page);
+    else if (page && page.quiz) html = renderQuiz(page);
+    else if (id === 'plan') html = renderPlan();
+    else if (id === 'glossary') html = renderGlossary();
+    else if (id === 'author') html = renderAuthor();
+    else html = renderHome();
+    $('#page').innerHTML = html;
+    // Широкие таблицы прокручиваются внутри своего контейнера
+    document.querySelectorAll('#page table.tbl').forEach(t => { const w = document.createElement('div'); w.className = 'tbl-wrap'; t.parentNode.insertBefore(w, t); w.appendChild(t); });
+    renderNav(page ? page.id : id);
+    closeMenu();
+    window.scrollTo(0, 0);
+
+    // Привязка обработчиков текущей страницы
+    document.querySelectorAll('.copy').forEach(b => b.addEventListener('click', () => copy(b.dataset.text, b, 'Копировать')));
+    if (page && page.lesson) {
+      if (page.lesson.builder) bindBuilder();
+      $('#mark').addEventListener('click', () => { state.lessons[page.id] = !state.lessons[page.id]; save(); route(); });
+    }
+    if (page && page.quiz) bindQuiz(page);
+    if (id === 'glossary') $('#gs').addEventListener('input', e => {
+      const v = e.target.value.toLowerCase().trim();
+      document.querySelectorAll('#gl > div').forEach(d => { d.hidden = v && !d.dataset.k.includes(v); });
+    });
+    const r = $('#reset');
+    if (r) { r.addEventListener('click', () => { $('#reset-confirm').hidden = false; }); $('#reset-yes').addEventListener('click', () => { state = { lessons: {}, quiz: {} }; save(); route(); }); }
+  }
+
+  // --- Мобильное меню ---
+  function closeMenu() { $('#side').classList.remove('open'); const s = $('#scrim'); if (s) s.hidden = true; }
+  $('#menu').addEventListener('click', () => { $('#side').classList.add('open'); $('#scrim').hidden = false; });
+  $('#scrim').addEventListener('click', closeMenu);
+
+  window.addEventListener('hashchange', route);
+  route();
+})();
+</script></body></html>
