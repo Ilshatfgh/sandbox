@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ильшат Фахритдинов</title>
+<meta name="description" content="Ильшат Фахритдинов — практик внедрения нейросетей в бизнес и повседневную жизнь, автор курса «Claude с нуля».">
+<link rel="icon" href="photo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&display=swap">
+<style>
+/* Палитра и шрифты — те же, что в курсе «Claude с нуля», чтобы сайт и курс выглядели одним брендом */
+:root{
+  --paper:#F6F7FA; --sheet:#FFFFFF; --ink:#151A2E; --muted:#5A6079; --line:#DCE0EA;
+  --accent:#2C47D1; --accent-ink:#FFFFFF; --accent-soft:#E7ECFF; --mark:#FFE47A;
+  --f-display:"Unbounded","Arial Black",system-ui,sans-serif;
+  --f-body:"Golos Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  --r:14px; --w:1080px;
+}
+/* Тёмная тема: по системной настройке, если пользователь не выбрал светлую вручную */
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0F1220; --sheet:#161A2B; --ink:#E7E9F3; --muted:#9AA0BA; --line:#272C44;
+  --accent:#7D93FF; --accent-ink:#0F1220; --accent-soft:#1F2647; --mark:#E8C94A;
+}}
+:root[data-theme="dark"]{
+  --paper:#0F1220; --sheet:#161A2B; --ink:#E7E9F3; --muted:#9AA0BA; --line:#272C44;
+  --accent:#7D93FF; --accent-ink:#0F1220; --accent-soft:#1F2647; --mark:#E8C94A;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 var(--f-body);-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+img{max-width:100%;display:block}
+.wrap{max-width:var(--w);margin:0 auto;padding:0 16px}
+h1,h2,h3{font-family:var(--f-display);line-height:1.15;margin:0 0 .5em;letter-spacing:-.01em}
+h2{font-size:clamp(24px,4vw,34px)}
+h3{font-size:18px}
+.muted{color:var(--muted)}
+.mark{background:linear-gradient(transparent 58%,var(--mark) 58%);color:inherit}
+
+/* Шапка: липкая, с полупрозрачным фоном */
+header{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--paper) 85%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:16px;height:60px}
+.logo{font-family:var(--f-display);font-weight:700;text-decoration:none;color:var(--ink);margin-right:auto}
+nav{display:flex;gap:20px}
+nav a{color:var(--muted);text-decoration:none;font-weight:500}
+nav a:hover{color:var(--ink)}
+.theme{border:1px solid var(--line);background:var(--sheet);color:var(--ink);border-radius:999px;width:38px;height:38px;cursor:pointer;font-size:20px;line-height:1;font-family:system-ui,sans-serif}
+
+/* Первый экран */
+.hero{display:grid;grid-template-columns:1.4fr 1fr;gap:48px;align-items:center;padding:72px 0 56px}
+.hero h1{font-size:clamp(32px,6vw,56px)}
+.lead{font-size:clamp(18px,2.2vw,21px);color:var(--muted);max-width:36ch}
+.photo{aspect-ratio:1;border-radius:28px;overflow:hidden;border:1px solid var(--line);box-shadow:0 20px 50px -20px rgba(20,30,80,.35)}
+.photo img{width:100%;height:100%;object-fit:cover}
+.btns{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.btn{display:inline-block;padding:13px 22px;border-radius:999px;font-weight:600;text-decoration:none;border:1px solid var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{color:var(--accent)}
+.btn:hover{filter:brightness(1.08)}
+
+/* Секции и карточки */
+section{padding:56px 0;border-top:1px solid var(--line)}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.card{background:var(--sheet);border:1px solid var(--line);border-radius:var(--r);padding:22px}
+.card p{margin:0;color:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:28px}
+.fact b{display:block;font-family:var(--f-display);font-size:30px;color:var(--accent)}
+.chips{list-style:none;padding:0;margin:10px 0 0;display:flex;flex-wrap:wrap;gap:8px}
+.chips li{background:var(--accent-soft);border-radius:999px;padding:5px 13px;font-size:15px}
+
+/* Блок проекта (курс) */
+.project{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;background:var(--accent);color:var(--accent-ink);border-radius:24px;padding:36px}
+.project p{opacity:.9;margin:0}
+.project .btn{background:var(--accent-ink);color:var(--accent);border-color:var(--accent-ink)}
+
+/* Контакты */
+.contacts a{font-size:19px;font-weight:600}
+footer{padding:28px 0 40px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+
+/* Телефон: одна колонка, фото сверху, меню скрыто (страница короткая, хватает прокрутки) */
+@media (max-width:760px){
+  nav{display:none}
+  .hero{grid-template-columns:1fr;gap:28px;padding-top:36px}
+  .hero .photo{order:-1;max-width:220px}
+  .project{grid-template-columns:1fr;padding:26px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap bar">
+    <a class="logo" href="#top">И. Фахритдинов</a>
+    <nav>
+      <a href="#about">Обо мне</a>
+      <a href="#services">Чем помогаю</a>
+      <a href="#course">Курс</a>
+      <a href="#contacts">Контакты</a>
+    </nav>
+    <button class="theme" id="theme" aria-label="Сменить тему">◐</button>
+  </div>
+</header>
+
+<main id="top" class="wrap">
+
+  <!-- Первый экран -->
+  <div class="hero">
+    <div>
+      <h1>Ильшат<br>Фахритдинов</h1>
+      <p class="lead">Встраиваю нейросети в бизнес и повседневную жизнь так, чтобы они <span class="mark">приносили результат каждый день</span>, а не были игрушкой.</p>
+      <div class="btns">
+        <a class="btn primary" href="#contacts">Связаться</a>
+        <a class="btn ghost" href="#course">Курс «Claude с нуля»</a>
+      </div>
+    </div>
+    <div class="photo"><img src="photo.jpg" alt="Ильшат Фахритдинов" width="480" height="480"></div>
+  </div>
+
+  <!-- Обо мне -->
+  <section id="about">
+    <h2>Обо мне</h2>
+    <p>Работаю с нейросетями с конца 2022 года — с момента их выхода на массовый рынок. Прошёл путь от первых экспериментов до ежедневной работы, в которой нейросети стали полноценными коллегами. Каждый приём, которому учу, сначала проверяю на собственных задачах.</p>
+    <p>По профессии — руководитель продаж в финтехе. Построил с нуля несколько отделов продаж, создал собственный бизнес. Смотрю на нейросети глазами управленца: инструмент должен экономить время и давать понятный результат.</p>
+    <div class="facts">
+      <div class="card fact"><b>2022</b>работаю с нейросетями</div>
+      <div class="card fact"><b>13+</b>нейросетей в практике</div>
+      <div class="card fact"><b>39</b>уроков в авторском курсе</div>
+    </div>
+  </section>
+
+  <!-- Направления работы -->
+  <section id="services">
+    <h2>Чем помогаю</h2>
+    <div class="grid">
+      <div class="card"><h3>Внедрение в бизнес</h3><p>Регламенты, скрипты продаж, аналитика, отчёты и подготовка к переговорам с помощью нейросетей.</p></div>
+      <div class="card"><h3>Обучение команд</h3><p>Учу сотрудников работать с нейросетями простым языком, на их реальных задачах.</p></div>
+      <div class="card"><h3>Автоматизация рутины</h3><p>Тексты, предложения клиентам, разбор документов и анализ рынка — быстрее и без потери качества.</p></div>
+      <div class="card"><h3>Продажи</h3><p>Построение отдела продаж с нуля: процессы, найм, обучение, метрики.</p></div>
+    </div>
+  </section>
+
+  <!-- Инструменты: списки совпадают с данными автора в курсе (src/data2.js, AUTHOR) -->
+  <section id="tools">
+    <h2>С какими нейросетями работаю</h2>
+    <div class="grid">
+      <div class="card"><h3>Российские</h3>
+        <ul class="chips"><li>GigaChat</li><li>YandexGPT и Алиса</li><li>Kandinsky</li><li>Шедеврум</li></ul></div>
+      <div class="card"><h3>Зарубежные</h3>
+        <ul class="chips"><li>ChatGPT</li><li>Claude</li><li>Gemini</li><li>DeepSeek</li><li>Perplexity</li><li>Microsoft Copilot</li><li>Grok</li><li>Midjourney</li><li>Suno</li></ul></div>
+    </div>
+  </section>
+
+  <!-- Проект: курс -->
+  <section id="course">
+    <div class="project">
+      <div>
+        <h2>Курс «Claude с нуля»</h2>
+        <p>Интерактивный 8-недельный курс для тех, кто никогда не пользовался нейросетями: 9 модулей, 39 уроков, 56 готовых запросов, тесты и словарь. Работает в браузере без регистрации.</p>
+      </div>
+      <!-- Ссылка ведёт на курс в корне репозитория (index.html) -->
+      <a class="btn" href="../index.html">Открыть курс →</a>
+    </div>
+  </section>
+
+  <!-- Контакты: ссылки заполняются в объекте CONTACTS внизу страницы -->
+  <section id="contacts" class="contacts">
+    <h2>Контакты</h2>
+    <p class="muted">Обсудить внедрение нейросетей, обучение команды или курс.</p>
+    <div class="grid" id="contact-list"></div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">© <span id="year"></span> Ильшат Фахритдинов</div>
+</footer>
+
+<script>
+// Контакты: впишите свои значения; пустые строки не показываются на странице
+const CONTACTS = [
+  { label: 'Telegram', href: '' },   // например: https://t.me/username
+  { label: 'Email',    href: '' },   // например: mailto:name@example.com
+  { label: 'VK',       href: '' }    // например: https://vk.com/username
+];
+
+// Выводим только заполненные контакты
+const list = document.getElementById('contact-list');
+const filled = CONTACTS.filter(c => c.href);
+list.innerHTML = filled.length
+  ? filled.map(c => `<a class="card" href="${c.href}" target="_blank" rel="noopener">${c.label} →</a>`).join('')
+  : '<p class="muted">Контакты скоро появятся.</p>';
+
+// Год в подвале
+document.getElementById('year').textContent = new Date().getFullYear();
+
+// Переключатель темы: запоминаем выбор (если хранилище недоступно — просто не запоминаем)
+const root = document.documentElement;
+try { const t = localStorage.getItem('theme'); if (t) root.dataset.theme = t; } catch (e) {}
+document.getElementById('theme').addEventListener('click', () => {
+  const dark = root.dataset.theme
+    ? root.dataset.theme === 'dark'
+    : matchMedia('(prefers-color-scheme:dark)').matches;
+  root.dataset.theme = dark ? 'light' : 'dark';
+  try { localStorage.setItem('theme', root.dataset.theme); } catch (e) {}
+});
+</script>
+</body>
+</html>
