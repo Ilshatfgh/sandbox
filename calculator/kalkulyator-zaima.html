@@ -1,0 +1,281 @@
+<title>Калькулятор займа</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Onest:wght@400;500;600&display=swap">
+<style>
+  /* Макет: одна карточка-калькулятор по центру; слева ползунки, справа итог. На телефоне — в одну колонку */
+  :root {
+    --bg: #eef3f1;        /* фон страницы: холодный светло-зелёный */
+    --card: #ffffff;      /* фон карточки */
+    --fg: #14211d;        /* основной текст */
+    --muted: #5d6e68;     /* подписи */
+    --line: #d5e0dc;      /* линии и дорожка ползунка */
+    --accent: #0b7a5f;    /* основной цвет: сумма займа */
+    --accent-2: #e0a526;  /* второй цвет: переплата */
+    --result-bg: #0f2a23; /* фон блока с итогом */
+    --result-fg: #f2f7f5;
+    --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+    --font-body: "Onest", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  /* Тёмная тема по настройке системы */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0c1513; --card: #15211e; --fg: #e6efec; --muted: #93a7a0;
+      --line: #2a3a36; --accent: #3cc49d; --accent-2: #f0b941;
+      --result-bg: #0a3a2e; --result-fg: #f2f7f5; color-scheme: dark;
+    }
+  }
+  /* Тёмная тема, выбранная вручную */
+  :root[data-theme="dark"] {
+    --bg: #0c1513; --card: #15211e; --fg: #e6efec; --muted: #93a7a0;
+    --line: #2a3a36; --accent: #3cc49d; --accent-2: #f0b941;
+    --result-bg: #0a3a2e; --result-fg: #f2f7f5; color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.5;
+    padding-block: 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { max-width: 880px; margin: 0 auto; display: grid; gap: 20px; }
+
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(1.5rem, 4vw, 2.1rem);
+    line-height: 1.15;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .lead { margin: 0; color: var(--muted); }
+
+  /* Карточка калькулятора: две колонки */
+  .calc {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    overflow: hidden;
+  }
+  @media (max-width: 700px) { .calc { grid-template-columns: 1fr; } }
+
+  .inputs { padding: 28px; display: grid; gap: 28px; align-content: start; min-width: 0; }
+
+  /* Одно поле: подпись + значение + ползунок + границы */
+  .field { display: grid; gap: 10px; }
+  .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .field label { font-weight: 600; }
+  .value-box {
+    display: flex; align-items: baseline; gap: 6px;
+    border: 1px solid var(--line); border-radius: 10px; padding: 4px 10px;
+  }
+  .value-box:focus-within { border-color: var(--accent); }
+  .value-box input {
+    width: 6.5ch; border: 0; background: transparent; color: var(--fg);
+    font: 600 1.15rem var(--font-body); text-align: right;
+    font-variant-numeric: tabular-nums; outline: none;
+  }
+  .value-box span { color: var(--muted); }
+  .limits { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+
+  /* Ползунок: закрашенная часть дорожки задаётся переменной --p (процент) */
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 8px; border-radius: 99px; margin: 6px 0;
+    background: linear-gradient(to right, var(--accent) var(--p, 50%), var(--line) var(--p, 50%));
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%;
+    background: var(--card); border: 3px solid var(--accent);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--card); border: 3px solid var(--accent);
+  }
+  input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+  .rate-note { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .rate-note b { color: var(--fg); }
+
+  /* Блок с итогом */
+  .result {
+    background: var(--result-bg); color: var(--result-fg);
+    padding: 28px; display: grid; gap: 18px; align-content: start; min-width: 0;
+  }
+  .result .eyebrow { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.75; margin: 0; }
+  .total {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: clamp(2rem, 6vw, 2.6rem); line-height: 1.1; margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .due { margin: 0; opacity: 0.8; }
+
+  /* Полоска: доля суммы займа и переплаты в платеже */
+  .bar { display: flex; height: 10px; border-radius: 99px; overflow: hidden; background: rgba(255,255,255,0.15); }
+  .bar .part-sum { background: var(--accent); }
+  .bar .part-over { background: var(--accent-2); }
+
+  .rows { display: grid; gap: 10px; margin: 0; }
+  .row { display: flex; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.14); }
+  .row dt { display: flex; align-items: center; gap: 8px; opacity: 0.85; }
+  .row dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+
+  .foot { color: var(--muted); font-size: 0.85rem; margin: 0; max-width: 70ch; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .bar > div { transition: width 0.25s ease; }
+  }
+</style>
+
+<main class="wrap">
+  <header style="display:grid;gap:8px">
+    <h1>Калькулятор займа</h1>
+    <p class="lead">Выберите сумму и срок. Платёж и переплата пересчитываются сразу.</p>
+  </header>
+
+  <section class="calc" aria-label="Калькулятор">
+    <!-- Левая часть: ввод суммы и срока -->
+    <div class="inputs">
+      <div class="field">
+        <div class="field-head">
+          <label for="sum-range">Сумма займа</label>
+          <div class="value-box">
+            <input id="sum-input" type="text" inputmode="numeric" aria-label="Сумма займа, рублей">
+            <span>₽</span>
+          </div>
+        </div>
+        <input id="sum-range" type="range" min="1000" max="30000" step="500" value="10000">
+        <div class="limits"><span>1 000 ₽</span><span>30 000 ₽</span></div>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="days-range">Срок</label>
+          <div class="value-box">
+            <input id="days-input" type="text" inputmode="numeric" aria-label="Срок, дней">
+            <span id="days-word">дней</span>
+          </div>
+        </div>
+        <input id="days-range" type="range" min="7" max="30" step="1" value="14">
+        <div class="limits"><span>7 дней</span><span>30 дней</span></div>
+      </div>
+
+      <p class="rate-note">Ставка: <b>0,8% в день</b>. Проценты начисляются на сумму займа за каждый день пользования.</p>
+    </div>
+
+    <!-- Правая часть: итог -->
+    <div class="result" aria-live="polite">
+      <p class="eyebrow">Вернуть одним платежом</p>
+      <p class="total" id="total">—</p>
+      <p class="due" id="due">—</p>
+
+      <div class="bar" aria-hidden="true">
+        <div class="part-sum" id="bar-sum"></div>
+        <div class="part-over" id="bar-over"></div>
+      </div>
+
+      <dl class="rows">
+        <div class="row"><dt><span class="dot" style="background:var(--accent)"></span>Сумма займа</dt><dd id="r-sum">—</dd></div>
+        <div class="row"><dt><span class="dot" style="background:var(--accent-2)"></span>Переплата</dt><dd id="r-over">—</dd></div>
+        <div class="row"><dt>Переплата в день</dt><dd id="r-day">—</dd></div>
+        <div class="row"><dt>ПСК</dt><dd>292% годовых</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <p class="foot">Расчёт примерный и не является офертой. ПСК (полная стоимость кредита) = 0,8% × 365 дней = 292% годовых.
+    Точные условия указываются в индивидуальных условиях договора.</p>
+</main>
+
+<script>
+  // ---- Настройки продукта ----
+  const RATE = 0.008;                 // ставка: 0,8% в день
+  const SUM_MIN = 1000, SUM_MAX = 30000, SUM_STEP = 500;
+  const DAYS_MIN = 7, DAYS_MAX = 30;
+
+  // ---- Элементы страницы ----
+  const $ = (id) => document.getElementById(id);
+  const sumRange = $("sum-range"), sumInput = $("sum-input");
+  const daysRange = $("days-range"), daysInput = $("days-input");
+
+  // Формат рублей: «12 345 ₽» (копейки показываем, только если они есть)
+  const rub = (n) => n.toLocaleString("ru-RU", { maximumFractionDigits: 2 }) + " ₽";
+
+  // Склонение: 1 день, 2 дня, 5 дней
+  function daysWord(n) {
+    const m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return "день";
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "дня";
+    return "дней";
+  }
+
+  // Ограничить число диапазоном [min, max]
+  const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+
+  // Закрасить дорожку ползунка до текущего значения
+  function paintRange(el) {
+    const p = ((el.value - el.min) / (el.max - el.min)) * 100;
+    el.style.setProperty("--p", p + "%");
+  }
+
+  // ---- Главный расчёт ----
+  // Переплата = сумма × 0,8% × число дней; возврат одним платежом в конце срока
+  function calc(sum, days) {
+    const over = Math.round(sum * RATE * days * 100) / 100;
+    return { over, total: sum + over, perDay: Math.round(sum * RATE * 100) / 100 };
+  }
+
+  // Перерисовать результат
+  function render() {
+    const sum = Number(sumRange.value);
+    const days = Number(daysRange.value);
+    const { over, total, perDay } = calc(sum, days);
+
+    // Поля ввода показывают текущие значения
+    sumInput.value = sum.toLocaleString("ru-RU");
+    daysInput.value = days;
+    $("days-word").textContent = daysWord(days);
+    paintRange(sumRange);
+    paintRange(daysRange);
+
+    // Дата возврата = сегодня + срок
+    const due = new Date();
+    due.setDate(due.getDate() + days);
+    const dueText = due.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+
+    $("total").textContent = rub(total);
+    $("due").textContent = "до " + dueText + " · через " + days + " " + daysWord(days);
+    $("r-sum").textContent = rub(sum);
+    $("r-over").textContent = rub(over);
+    $("r-day").textContent = rub(perDay);
+
+    // Полоска: какая часть платежа — займ, какая — переплата
+    $("bar-sum").style.width = (sum / total) * 100 + "%";
+    $("bar-over").style.width = (over / total) * 100 + "%";
+  }
+
+  // Ручной ввод: принимаем только цифры, при выходе из поля приводим к допустимому значению
+  function bindInput(input, range, min, max, step) {
+    input.addEventListener("change", () => {
+      const raw = Number(input.value.replace(/\D/g, "")) || min;
+      range.value = clamp(Math.round(raw / step) * step, min, max);
+      render();
+    });
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
+  }
+
+  sumRange.addEventListener("input", render);
+  daysRange.addEventListener("input", render);
+  bindInput(sumInput, sumRange, SUM_MIN, SUM_MAX, SUM_STEP);
+  bindInput(daysInput, daysRange, DAYS_MIN, DAYS_MAX, 1);
+
+  render(); // первый расчёт при открытии: 10 000 ₽ на 14 дней
+</script>
