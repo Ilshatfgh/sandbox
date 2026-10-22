@@ -216,11 +216,13 @@ function renderCalendar() {
     html += `<button class="${cls.join(" ")}" data-d="${k}">${d.getDate()}</button>`;
   }
   $("#calGrid").innerHTML = html;
+  $("#periodBtn").classList.toggle("on", !!range.from);
   $("#periodText").textContent = pickStart ? `${ruDate(pickStart)} — выберите конец периода`
     : range.from ? (range.from === range.to ? ruDate(range.from) : `${ruDate(range.from)} — ${ruDate(range.to)}`) : "весь";
 }
 function setRange(from, to) {
   pickStart = null;
+  $("#cal").hidden = true; // период выбран — сворачиваем календарь в строку
   range = from ? { from: from < to ? from : to, to: from < to ? to : from } : { from: null, to: null };
   render();
 }
@@ -230,6 +232,22 @@ $("#calGrid").addEventListener("click", (e) => {
   if (!pickStart) { pickStart = k; range = { from: k, to: k }; render(); } // один клик = один день
   else setRange(pickStart, k);
 });
+$("#periodBtn").onclick = (e) => {
+  e.stopPropagation();
+  const cal = $("#cal");
+  if (cal.hidden && range.from) { calMonth = new Date(range.from); calMonth.setDate(1); } // открываем на выбранном месяце
+  cal.hidden = !cal.hidden;
+  if (cal.hidden && pickStart) setRange(pickStart, pickStart); else renderCalendar();
+};
+// Клики внутри календаря не «всплывают»: дни перерисовываются, и клик иначе выглядел бы как клик мимо
+$("#cal").addEventListener("click", (e) => e.stopPropagation());
+// Клик мимо календаря / Esc — свернуть (недовыбранный период = один день)
+function closeCal() {
+  if ($("#cal").hidden) return;
+  if (pickStart) setRange(pickStart, pickStart); else $("#cal").hidden = true;
+}
+document.addEventListener("click", (e) => { if (!e.target.closest(".period-wrap")) closeCal(); });
+document.addEventListener("keydown", (e) => e.key === "Escape" && closeCal());
 document.querySelectorAll(".cal-nav").forEach((b) => (b.onclick = () => {
   calMonth.setMonth(calMonth.getMonth() + Number(b.dataset.nav)); renderCalendar();
 }));
