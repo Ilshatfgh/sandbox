@@ -43,3 +43,16 @@ for row in [("Лебедев Игорь Олегович", "+79001110007", "400 
         c.text = v
 d.add_paragraph("Также звонила ООО Вектор, тел. 8 (900) 111-00-09, нужна сумма 900 000 руб.")
 d.save(OUT / "leads.docx")
+
+# Excel без заголовков: строки скопированы из CRM (раскладка как у реальной выгрузки, 26 колонок).
+# Дата лида | lead_phone | source_group | utm… | lead_client_id | lead_id | final_step | статус | форма | сумма | инн | компания
+wb = Workbook()
+ws = wb.active
+nul = ["null"] * 4
+ws.append([datetime(2026, 10, 20, 9, 48, 2), 79001110010, "органика", *nul, "3\xa0960", "35\xa0073", "loan", "active",
+           "null", "50\xa0000", "null", "null", *["null"] * 8, 0, 0, 0])
+ws.append([datetime(2026, 10, 20, 10, 5, 0), 79001110011, "Boostra", *nul, "3\xa0961", "35\xa0074", "submit", "active",
+           "ИП", "1\xa0500\xa0000", "110400000011", "ИП Петров Пётр Петрович", *["null"] * 8, 0, 0, 0])
+ws.append([datetime(2026, 10, 20, 11, 0, 0), 79001110012, "CPA", *nul, "3\xa0962", "35\xa0075", "company", "active",
+           "ООО", "2\xa0000\xa0000", "7700000012", "ООО \"ЗАРЯ\"", *["null"] * 8, 0, 0, 0])
+wb.save(OUT / "leads_noheader.xlsx")

@@ -226,6 +226,18 @@ def test_documents():
     ]
 
 
+def test_excel_without_header():
+    """Строки, скопированные из CRM без заголовка: колонки по содержимому (id лидов — не сумма)."""
+    from app.files import parse_document
+    rows = parse_document("x.xlsx", open(FIX / "leads_noheader.xlsx", "rb"))
+    assert [(r["lead_date"], r["phone"], r["name"], r["org_form"], r["amount"]) for r in rows] == [
+        ("2026-10-20 09:48", "+79001110010", None, None, 50000),
+        ("2026-10-20 10:05", "+79001110011", "Петров Пётр Петрович", "ИП", 1500000),
+        ("2026-10-20 11:00", "+79001110012", "ЗАРЯ", "ООО", 2000000),
+    ]
+    assert rows[0]["warnings"][0].startswith("Файл без заголовков")
+
+
 def test_big_excel_upload(client, tmp_path):
     """Файл на 1500 лидов: все разобраны, дубли внутри файла и с базой помечены."""
     from openpyxl import Workbook
