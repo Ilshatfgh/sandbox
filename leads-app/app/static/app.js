@@ -28,32 +28,68 @@ document.querySelectorAll(".tab").forEach((b) => (b.onclick = () => {
 }));
 
 // ---------- вкладка «База» ----------
-function filters() {
-  const p = new URLSearchParams();
-  if ($("#q").value.trim()) p.set("q", $("#q").value.trim());
-  if ($("#fStatus").value) p.set("status", $("#fStatus").value);
-  if ($("#fDue").checked) p.set("callback_due", "true");
-  return p.toString();
+// Все лиды грузим один раз, фильтруем в браузере (лидов — тысячи, это мгновенно).
+// Экспорт отправляет на сервер id видимых строк — в Excel ровно то, что в таблице.
+let ALL = [];                       // все лиды из базы
+let VIEW = [];                      // после всех фильтров
+const colFilters = {};              // поле -> Set выбранных значений (нет ключа = фильтра нет)
+let range = { from: null, to: null }; // период календаря, 'YYYY-MM-DD'
+let calMonth = new Date(); calMonth.setDate(1);
+const EMPTY = "(пусто)";
+
+// Колонки таблицы и как из лида получить значение для фильтра / подпись
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const ruDate = (s) => (s ? s.slice(0, 10).split("-").reverse().join(".") : "");
+const leadDay = (l) => (l.lead_date || l.created_at || "").slice(0, 10); // дата лида; нет — дата загрузки
+const COLS = [
+  { f: "lead_date", title: "Дата лида", key: leadDay, label: ruDate, sort: "desc" },
+  { f: "phone", title: "Телефон" },
+  { f: "name", title: "Компания / ФИО" },
+  { f: "org_form", title: "Форма" },
+  { f: "amount", title: "Сумма", num: true, label: fmtAmount, sort: "num" },
+  { f: "status", title: "Статус", sort: "status" },
+  { f: "callback_at", title: "Перезвонить", key: (l) => (l.callback_at || "").slice(0, 10), label: ruDate, sort: "asc" },
+  { f: "comment", title: "Комментарий" },
+];
+const colKey = (c, l) => { const v = c.key ? c.key(l) : l[c.f]; return v == null || v === "" ? EMPTY : String(v); };
+const colLabel = (c, k) => (k === EMPTY ? EMPTY : c.label ? c.label(c.num ? Number(k) : k) : k);
+
+// Фильтрация. skip — колонка, которую не учитываем (для списка значений в её же фильтре)
+function applyFilters(skip = null) {
+  const q = $("#q").value.trim().toLowerCase(), qd = q.replace(/\D/g, "");
+  const today = ymd(new Date());
+  return ALL.filter((l) => {
+    if (range.from) { const d = leadDay(l); if (d < range.from || d > range.to) return false; }
+    if (q && !((l.name || "").toLowerCase().includes(q) || (qd && l.phone.includes(qd)))) return false;
+    if ($("#fDue").checked && !(l.status === "Перезвонить" && l.callback_at && l.callback_at.slice(0, 10) <= today)) return false;
+    for (const c of COLS) {
+      if (c.f === skip || !colFilters[c.f]) continue;
+      if (!colFilters[c.f].has(colKey(c, l))) return false;
+    }
+    return true;
+  });
 }
 
 async function loadMeta() {
   META = await api("/api/meta");
   $("#backupInfo").textContent = META.last_backup ? `Бэкап: ${META.last_backup.slice(6, 16)}` : "Бэкапа ещё нет";
-  $("#fStatus").innerHTML = `<option value="">Все статусы</option>` + options(META.statuses, $("#fStatus").value);
-  // Плашки-счётчики по статусам; клик = фильтр
-  $("#stats").innerHTML = META.statuses.map((s) =>
-    `<div class="stat" data-s="${esc(s)}"><b>${META.stats[s] || 0}</b>${esc(s)}</div>`).join("");
-  document.querySelectorAll(".stat").forEach((el) => (el.onclick = () => {
-    $("#fStatus").value = $("#fStatus").value === el.dataset.s ? "" : el.dataset.s; loadLeads();
-  }));
 }
 
 async function loadLeads() {
   await loadMeta();
-  const leads = await api("/api/leads?" + filters());
-  const today = new Date().toISOString().slice(0, 10);
-  $("#empty").hidden = leads.length > 0;
-  $("#leadsBody").innerHTML = leads.map((l) => {
+  ALL = await api("/api/leads");
+  render();
+}
+
+function render() {
+  VIEW = applyFilters();
+  renderHead(); renderStats(); renderCalendar();
+  const today = ymd(new Date());
+  $("#empty").hidden = ALL.length > 0;
+  $("#shown").textContent = `Показано: ${VIEW.length} из ${ALL.length}`;
+  const active = range.from || Object.keys(colFilters).length || $("#q").value.trim() || $("#fDue").checked;
+  $("#resetFilters").hidden = !active;
+  $("#leadsBody").innerHTML = VIEW.map((l) => {
     const due = l.status === "Перезвонить" && l.callback_at && l.callback_at.slice(0, 10) <= today;
     return `<tr data-id="${l.id}" class="${due ? "due" : ""}">
       <td contenteditable data-f="lead_date">${esc(l.lead_date)}</td>
@@ -68,6 +104,149 @@ async function loadLeads() {
     </tr>`;
   }).join("");
 }
+
+// Заголовки с кнопкой фильтра; активный фильтр подсвечен и показывает число выбранных значений
+function renderHead() {
+  $("#leadsHead").innerHTML = COLS.map((c) => {
+    const on = colFilters[c.f];
+    return `<th class="${c.num ? "num" : ""}">${esc(c.title)}<button class="th-flt ${on ? "on" : ""}" data-col="${c.f}"
+      title="Фильтр">${on ? on.size + " ▾" : "▾"}</button></th>`;
+  }).join("") + "<th></th>";
+}
+
+// Плашки статусов: счётчики по текущему периоду и фильтрам (кроме статуса); клик — добавить/убрать статус в фильтре
+function renderStats() {
+  const base = applyFilters("status"), cnt = {};
+  base.forEach((l) => (cnt[l.status] = (cnt[l.status] || 0) + 1));
+  const sel = colFilters.status;
+  $("#stats").innerHTML = META.statuses.map((s) =>
+    `<div class="stat ${sel && sel.has(s) ? "on" : ""}" data-s="${esc(s)}"><b>${cnt[s] || 0}</b>${esc(s)}</div>`).join("");
+}
+$("#stats").addEventListener("click", (e) => {
+  const el = e.target.closest(".stat"); if (!el) return;
+  const s = colFilters.status || new Set();
+  s.has(el.dataset.s) ? s.delete(el.dataset.s) : s.add(el.dataset.s);
+  if (s.size) colFilters.status = s; else delete colFilters.status;
+  render();
+});
+
+// ----- выпадающий фильтр колонки (как в Excel) -----
+let cfCol = null;
+function openColFilter(btn) {
+  const c = COLS.find((x) => x.f === btn.dataset.col);
+  cfCol = c;
+  // Значения — из строк, прошедших остальные фильтры, + уже выбранные (чтобы их можно было снять)
+  const counts = new Map();
+  applyFilters(c.f).forEach((l) => { const k = colKey(c, l); counts.set(k, (counts.get(k) || 0) + 1); });
+  (colFilters[c.f] || []).forEach((k) => counts.has(k) || counts.set(k, 0));
+  const order = META.statuses;
+  const keys = [...counts.keys()].sort((a, b) => {
+    if (a === EMPTY) return 1; if (b === EMPTY) return -1;
+    if (c.sort === "num") return Number(a) - Number(b);
+    if (c.sort === "desc") return b.localeCompare(a);
+    if (c.sort === "status") return order.indexOf(a) - order.indexOf(b);
+    return a.localeCompare(b, "ru");
+  });
+  const sel = colFilters[c.f];
+  $("#cfList").innerHTML = keys.map((k) => `<label data-text="${esc(colLabel(c, k).toLowerCase())}">
+    <input type="checkbox" value="${esc(k)}" ${!sel || sel.has(k) ? "checked" : ""}> ${esc(colLabel(c, k))}
+    <span class="cnt">${counts.get(k)}</span></label>`).join("") || `<p class="muted">Нет значений</p>`;
+  $("#cfSearch").value = "";
+  syncCfAll();
+  const box = $("#colFilter"), r = btn.getBoundingClientRect();
+  box.hidden = false;
+  box.style.top = `${r.bottom + window.scrollY + 4}px`;
+  box.style.left = `${Math.min(r.left + window.scrollX - 10, document.documentElement.clientWidth - box.offsetWidth - 10)}px`;
+  $("#cfSearch").focus();
+}
+const cfBoxes = (visibleOnly) => [...document.querySelectorAll("#cfList label")]
+  .filter((l) => !visibleOnly || !l.hidden).map((l) => l.querySelector("input"));
+function syncCfAll() {
+  const v = cfBoxes(true);
+  $("#cfAll").checked = v.length > 0 && v.every((x) => x.checked);
+}
+$("#leadsHead").addEventListener("click", (e) => {
+  const btn = e.target.closest(".th-flt"); if (!btn) return;
+  e.stopPropagation();
+  $("#colFilter").hidden || cfCol?.f !== btn.dataset.col ? openColFilter(btn) : ($("#colFilter").hidden = true);
+});
+// Поиск по списку значений: при поиске «Выделить все» работает только по найденным
+$("#cfSearch").oninput = () => {
+  const q = $("#cfSearch").value.trim().toLowerCase();
+  document.querySelectorAll("#cfList label").forEach((l) => (l.hidden = q && !l.dataset.text.includes(q)));
+  syncCfAll();
+};
+$("#cfAll").onchange = () => cfBoxes(true).forEach((x) => (x.checked = $("#cfAll").checked));
+$("#cfList").addEventListener("change", syncCfAll);
+$("#cfOk").onclick = () => {
+  const q = $("#cfSearch").value.trim();
+  // Если искали — берём отмеченные среди найденных (как в Excel), иначе — все отмеченные
+  const boxes = cfBoxes(!!q), checked = boxes.filter((x) => x.checked).map((x) => x.value);
+  if (!q && checked.length === boxes.length) delete colFilters[cfCol.f];
+  else colFilters[cfCol.f] = new Set(checked);
+  $("#colFilter").hidden = true; render();
+};
+$("#cfReset").onclick = () => { delete colFilters[cfCol.f]; $("#colFilter").hidden = true; render(); };
+$("#cfSearch").addEventListener("keydown", (e) => e.key === "Enter" && $("#cfOk").click());
+document.addEventListener("click", (e) => {
+  if (!$("#colFilter").hidden && !e.target.closest("#colFilter")) $("#colFilter").hidden = true;
+});
+document.addEventListener("keydown", (e) => e.key === "Escape" && ($("#colFilter").hidden = true));
+
+// ----- календарь периода -----
+const MONTHS = ["январь", "февраль", "март", "апрель", "май", "июнь", "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"];
+let pickStart = null; // первый клик выбран, ждём второй
+
+function renderCalendar() {
+  const y = calMonth.getFullYear(), m = calMonth.getMonth();
+  $("#calTitle").textContent = `${MONTHS[m]} ${y}`;
+  const days = new Set(ALL.map(leadDay)); // дни, в которые есть лиды — точка под числом
+  const first = new Date(y, m, 1), shift = (first.getDay() + 6) % 7; // неделя с понедельника
+  const today = ymd(new Date());
+  let html = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((d) => `<div class="dow">${d}</div>`).join("");
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(y, m, 1 - shift + i), k = ymd(d);
+    const cls = ["day"];
+    if (d.getMonth() !== m) cls.push("out");
+    if (k === today) cls.push("today");
+    if (days.has(k)) cls.push("has");
+    const from = pickStart || range.from, to = pickStart || range.to;
+    if (from && k >= from && k <= to) cls.push(k === from || k === to ? "edge" : "in");
+    html += `<button class="${cls.join(" ")}" data-d="${k}">${d.getDate()}</button>`;
+  }
+  $("#calGrid").innerHTML = html;
+  $("#periodText").textContent = pickStart ? `${ruDate(pickStart)} — выберите конец периода`
+    : range.from ? (range.from === range.to ? ruDate(range.from) : `${ruDate(range.from)} — ${ruDate(range.to)}`) : "весь";
+}
+function setRange(from, to) {
+  pickStart = null;
+  range = from ? { from: from < to ? from : to, to: from < to ? to : from } : { from: null, to: null };
+  render();
+}
+$("#calGrid").addEventListener("click", (e) => {
+  const b = e.target.closest(".day"); if (!b) return;
+  const k = b.dataset.d;
+  if (!pickStart) { pickStart = k; range = { from: k, to: k }; render(); } // один клик = один день
+  else setRange(pickStart, k);
+});
+document.querySelectorAll(".cal-nav").forEach((b) => (b.onclick = () => {
+  calMonth.setMonth(calMonth.getMonth() + Number(b.dataset.nav)); renderCalendar();
+}));
+$("#calTitle").onclick = () => {
+  const y = calMonth.getFullYear(), m = calMonth.getMonth();
+  setRange(ymd(new Date(y, m, 1)), ymd(new Date(y, m + 1, 0)));
+};
+document.querySelectorAll(".cal-presets button").forEach((b) => (b.onclick = () => {
+  const t = new Date(), d = (n) => ymd(new Date(t.getFullYear(), t.getMonth(), t.getDate() + n));
+  const p = b.dataset.preset;
+  if (p === "today") setRange(d(0), d(0));
+  if (p === "yesterday") setRange(d(-1), d(-1));
+  if (p === "week") setRange(d(-6), d(0));
+  if (p === "month") setRange(ymd(new Date(t.getFullYear(), t.getMonth(), 1)), ymd(new Date(t.getFullYear(), t.getMonth() + 1, 0)));
+  if (p === "prevmonth") setRange(ymd(new Date(t.getFullYear(), t.getMonth() - 1, 1)), ymd(new Date(t.getFullYear(), t.getMonth(), 0)));
+  if (p === "all") setRange(null);
+  if (p !== "all") { calMonth = new Date(range.to); calMonth.setDate(1); renderCalendar(); }
+}));
 
 // Сохранение изменений ячейки (по уходу фокуса / смене значения)
 async function saveField(el) {
@@ -96,9 +275,26 @@ $("#leadsBody").addEventListener("click", async (e) => {
   await api(`/api/leads/${tr.dataset.id}`, { method: "DELETE" });
   loadLeads();
 });
-let qTimer; $("#q").oninput = () => { clearTimeout(qTimer); qTimer = setTimeout(loadLeads, 300); };
-$("#fStatus").onchange = loadLeads; $("#fDue").onchange = loadLeads;
-$("#exportBtn").onclick = () => (location.href = "/api/export.xlsx?" + filters());
+let qTimer; $("#q").oninput = () => { clearTimeout(qTimer); qTimer = setTimeout(render, 200); };
+$("#fDue").onchange = render;
+$("#resetFilters").onclick = () => {
+  Object.keys(colFilters).forEach((k) => delete colFilters[k]);
+  $("#q").value = ""; $("#fDue").checked = false; setRange(null);
+};
+
+// Экспорт: видимые строки; имя файла — по периоду календаря
+$("#exportBtn").onclick = async () => {
+  if (!VIEW.length) return toast("Нет строк для выгрузки", true);
+  const r = await fetch("/api/export.xlsx", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids: VIEW.map((l) => l.id), date_from: range.from, date_to: range.to }),
+  });
+  if (!r.ok) return toast("Не удалось выгрузить", true);
+  const name = (r.headers.get("Content-Disposition") || "").match(/filename="(.+)"/)?.[1] || "leads.xlsx";
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(await r.blob()); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
 
 // ---------- вкладка «Загрузка скринов» ----------
 async function parseFiles(files) {

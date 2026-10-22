@@ -18,24 +18,51 @@
   <span id="backupInfo" class="muted small" title="Копии базы: папка data\backups"></span>
 </header>
 
-<!-- Вкладка «База»: фильтры, таблица, смена статусов, экспорт -->
+<!-- Вкладка «База»: календарь периода, фильтры в заголовках колонок, таблица, экспорт -->
 <section id="base" class="page">
-  <div id="stats" class="stats"></div>
-  <div class="toolbar">
-    <input id="q" type="search" placeholder="Поиск: имя или телефон">
-    <select id="fStatus"><option value="">Все статусы</option></select>
-    <label class="chk"><input id="fDue" type="checkbox"> Перезвонить сегодня</label>
-    <span class="spacer"></span>
-    <button id="exportBtn" class="primary">Экспорт в Excel</button>
+  <div class="base-top">
+    <!-- Календарь: клик по дню — начало, второй клик — конец периода; клик по месяцу — весь месяц -->
+    <div class="card cal" id="cal">
+      <div class="cal-head">
+        <button class="cal-nav" data-nav="-1" title="Предыдущий месяц">‹</button>
+        <button class="cal-title" id="calTitle" title="Выбрать весь месяц"></button>
+        <button class="cal-nav" data-nav="1" title="Следующий месяц">›</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-presets">
+        <button data-preset="today">Сегодня</button><button data-preset="yesterday">Вчера</button>
+        <button data-preset="week">7 дней</button><button data-preset="month">Этот месяц</button>
+        <button data-preset="prevmonth">Прошлый месяц</button><button data-preset="all">Весь период</button>
+      </div>
+    </div>
+    <div class="base-side">
+      <div class="period">Период: <b id="periodText">весь</b></div>
+      <div id="stats" class="stats"></div>
+      <div class="toolbar">
+        <input id="q" type="search" placeholder="Поиск: имя или телефон">
+        <label class="chk"><input id="fDue" type="checkbox"> Перезвонить сегодня</label>
+        <button id="resetFilters" hidden>Сбросить фильтры</button>
+        <span class="spacer"></span>
+        <span id="shown" class="muted"></span>
+        <button id="exportBtn" class="primary">Экспорт в Excel</button>
+      </div>
+    </div>
   </div>
   <table class="grid">
-    <thead><tr>
-      <th>Дата лида</th><th>Телефон</th><th>Компания / ФИО</th><th>Форма</th><th class="num">Сумма</th>
-      <th>Статус</th><th>Перезвонить</th><th>Комментарий</th><th></th>
-    </tr></thead>
+    <thead><tr id="leadsHead"></tr></thead>
     <tbody id="leadsBody"></tbody>
   </table>
   <p id="empty" class="muted" hidden>Лидов нет. Загрузите скрины на вкладке «Загрузка скринов».</p>
+  <!-- Выпадающий фильтр колонки (один на страницу, позиционируется под заголовком) -->
+  <div id="colFilter" class="card colfilter" hidden>
+    <input id="cfSearch" type="search" placeholder="Поиск значения">
+    <label class="cf-all"><input type="checkbox" id="cfAll"> <b>Выделить все</b></label>
+    <div id="cfList" class="cf-list"></div>
+    <div class="cf-btns">
+      <button id="cfOk" class="primary">ОК</button>
+      <button id="cfReset">Сбросить</button>
+    </div>
+  </div>
 </section>
 
 <!-- Вкладка «Загрузка»: скрины -> проверка -> сохранение -->

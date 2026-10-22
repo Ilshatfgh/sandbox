@@ -145,3 +145,15 @@ def test_backup(tmp_path, monkeypatch):
     assert len(list(folder.glob("leads_*.db"))) == backup.KEEP
     assert sqlite3.connect(target).execute("SELECT name FROM leads").fetchone()[0] == "Альфа"
     assert backup.last_backup(folder) == target.name
+
+
+def test_export_selected(client):
+    """Экспорт выбранных строк (как их отфильтровал интерфейс), имя файла — по периоду."""
+    rows = [{"phone": f"7900111220{i}", "name": f"Лид {i}", "lead_date": f"2026-10-0{i}"} for i in range(1, 6)]
+    client.post("/api/leads/import", json=rows)
+    ids = {l["name"]: l["id"] for l in client.get("/api/leads").json()}
+    r = client.post("/api/export.xlsx", json={"ids": [ids["Лид 3"], ids["Лид 1"]],
+                                              "date_from": "2026-10-01", "date_to": "2026-10-03"})
+    assert 'filename="leads_2026-10-01_2026-10-03.xlsx"' in r.headers["content-disposition"]
+    ws = load_workbook(io.BytesIO(r.content)).active
+    assert [ws.cell(i, 2).value for i in (2, 3)] == ["Лид 3", "Лид 1"] and ws.max_row == 3

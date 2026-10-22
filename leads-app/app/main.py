@@ -210,12 +210,33 @@ def report_apply(changes: list[ReportChange]):
     return {"updated": len(changes)}
 
 
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def xlsx_response(leads, suffix=None):
+    name = f"leads_{suffix or date.today().isoformat()}.xlsx"
+    return Response(to_xlsx(leads), media_type=XLSX,
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
 @app.get("/api/export.xlsx")
 def export(status: str | None = None, q: str | None = None, callback_due: bool = False):
-    data = to_xlsx(db.list_leads(con, status, q, callback_due))
-    name = f"leads_{date.today().isoformat()}.xlsx"
-    return Response(data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+    return xlsx_response(db.list_leads(con, status, q, callback_due))
+
+
+class ExportIn(BaseModel):
+    ids: list[int]                 # строки, которые сейчас видны в таблице (после всех фильтров)
+    date_from: str | None = None   # выбранный в календаре период — для имени файла
+    date_to: str | None = None
+
+
+@app.post("/api/export.xlsx")
+def export_selected(body: ExportIn):
+    """Экспорт ровно того, что видит оператор: интерфейс присылает id отфильтрованных строк."""
+    suffix = None
+    if body.date_from:
+        suffix = body.date_from if body.date_from == body.date_to else f"{body.date_from}_{body.date_to}"
+    return xlsx_response(db.get_by_ids(con, body.ids), suffix)
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

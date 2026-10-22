@@ -103,3 +103,15 @@ def find_by_name(con, name):
     """Лиды с точно таким именем (без учёта регистра и лишних пробелов)."""
     key = " ".join(str(name).split()).lower()
     return [dict(r) for r in con.execute("SELECT * FROM leads") if " ".join((r["name"] or "").split()).lower() == key]
+
+
+def get_by_ids(con, ids):
+    """Лиды по списку id в том же порядке (порядок строк как в таблице интерфейса)."""
+    if not ids:
+        return []
+    found = {}
+    for i in range(0, len(ids), 500):  # лимит параметров SQLite
+        chunk = ids[i:i + 500]
+        rows = con.execute(f"SELECT * FROM leads WHERE id IN ({','.join('?' * len(chunk))})", chunk)
+        found.update({r["id"]: dict(r) for r in rows})
+    return [found[i] for i in ids if i in found]
