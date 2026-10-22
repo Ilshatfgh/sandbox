@@ -85,7 +85,7 @@ async def parse(files: list[UploadFile] = File(...)):
             for r in ocr.parse_image(f.file):
                 r["source"] = f.filename
                 rows.append(r)
-        except ocr.pytesseract.TesseractNotFoundError:
+        except ocr.TesseractNotFound:
             errors.append("Не установлен Tesseract OCR — см. README, раздел «Установка»")
             break
         except Exception as e:  # битый файл и т.п. — показываем оператору

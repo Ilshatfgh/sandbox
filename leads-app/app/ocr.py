@@ -7,15 +7,17 @@
 Запасной режим (нет заголовка, например скрин сообщения) — ищем телефон, сумму,
 ИП/ООО регулярками; если телефоны в разных строках — каждая строка отдельный лид.
 """
+import csv
+import io
 import os
 import re
 import shutil
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 
 from PIL import Image, ImageOps
-import pytesseract
 
 SCALE = 3  # увеличение картинки перед OCR: мелкий шрифт скринов так читается заметно лучше
 
@@ -41,21 +43,73 @@ def header_field(text):
 ORG_FORMS = ["ИП", "ООО", "АО", "ПАО", "ЗАО", "НКО", "КФХ", "САМОЗАНЯТЫЙ"]
 
 
+class TesseractNotFound(RuntimeError):
+    pass
+
+
+TESSERACT_CMD = None  # путь к tesseract.exe; None — не найден
+
+
+def ascii_copy(folder):
+    """Tesseract на Windows падает на русских буквах в пути («Illegal byte sequence»).
+    Если папка программы такая — один раз копируем Tesseract в C:\\ProgramData\\LeadsBase."""
+    if str(folder).isascii():
+        return folder
+    for base in (os.environ.get("ProgramData", r"C:\ProgramData"), r"C:\LeadsBaseOCR"):
+        target = Path(base) / "LeadsBase" / "tesseract"
+        if not str(target).isascii():
+            continue
+        try:
+            # Копируем, если копии нет или она от другой сборки (сверяем размеры файлов)
+            same = target.exists() and all(
+                (target / f.relative_to(folder)).exists()
+                and (target / f.relative_to(folder)).stat().st_size == f.stat().st_size
+                for f in folder.rglob("*") if f.is_file())
+            if not same:
+                shutil.copytree(folder, target, dirs_exist_ok=True)
+            return target
+        except OSError:
+            continue
+    return folder
+
+
 def setup_tesseract():
     """Ищем Tesseract: рядом с .exe (сборка) -> PATH -> стандартные папки Windows."""
+    global TESSERACT_CMD
     if getattr(sys, "frozen", False):
-        bundled = Path(sys.executable).parent / "tesseract" / "tesseract.exe"
-        if bundled.exists():
-            pytesseract.pytesseract.tesseract_cmd = str(bundled)
+        bundled = Path(sys.executable).parent / "tesseract"
+        if (bundled / "tesseract.exe").exists():
+            TESSERACT_CMD = str(ascii_copy(bundled) / "tesseract.exe")
             return
-    if shutil.which("tesseract"):
+    TESSERACT_CMD = shutil.which("tesseract")
+    if TESSERACT_CMD:
         return
     for p in (r"C:\Program Files\Tesseract-OCR\tesseract.exe",
               r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
               os.path.expandvars(r"%LOCALAPPDATA%\Programs\Tesseract-OCR\tesseract.exe")):
         if os.path.exists(p):
-            pytesseract.pytesseract.tesseract_cmd = p
+            TESSERACT_CMD = p
             return
+
+
+def run_tesseract(img):
+    """Распознать картинку: передаём PNG через stdin, читаем TSV из stdout.
+    Без временных файлов — русские буквы в имени пользователя Windows (папка TEMP) не мешают."""
+    if not TESSERACT_CMD:
+        raise TesseractNotFound("Tesseract не найден")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    tess_dir = Path(TESSERACT_CMD).parent
+    data_dir = tess_dir / "tessdata"
+    cmd = [TESSERACT_CMD, "stdin", "stdout", "-l", "rus+eng", "--psm", "11", "-c", "tessedit_create_tsv=1"]
+    if data_dir.exists():
+        cmd[1:1] = ["--tessdata-dir", str(data_dir)]
+    res = subprocess.run(cmd, input=buf.getvalue(), capture_output=True, cwd=str(tess_dir),
+                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    if res.returncode != 0:
+        raise RuntimeError("Ошибка распознавания: " + res.stderr.decode("utf-8", "replace").strip()[-300:])
+    return list(csv.DictReader(io.StringIO(res.stdout.decode("utf-8", "replace")),
+                               delimiter="\t", quoting=csv.QUOTE_NONE))
 
 
 setup_tesseract()
@@ -180,18 +234,16 @@ def ocr_words(img):
     """Слова с координатами (в масштабе исходной картинки)."""
     img = ImageOps.grayscale(img.convert("RGB"))
     big = img.resize((img.width * SCALE, img.height * SCALE), Image.LANCZOS)
-    d = pytesseract.image_to_data(big, lang="rus+eng", config="--psm 11",
-                                  output_type=pytesseract.Output.DICT)
     words = []
-    for i, t in enumerate(d["text"]):
-        t = t.strip()
-        if not t:
+    for r in run_tesseract(big):
+        t = (r.get("text") or "").strip()
+        if not t or r.get("conf") in (None, "-1"):
             continue
         words.append({
             "text": t,
-            "x": d["left"][i] / SCALE, "y": d["top"][i] / SCALE,
-            "w": d["width"][i] / SCALE, "h": d["height"][i] / SCALE,
-            "conf": float(d["conf"][i]),
+            "x": int(r["left"]) / SCALE, "y": int(r["top"]) / SCALE,
+            "w": int(r["width"]) / SCALE, "h": int(r["height"]) / SCALE,
+            "conf": float(r["conf"]),
         })
     return words
 

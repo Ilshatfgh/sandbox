@@ -182,3 +182,17 @@ def test_other_formats(fixture, expected):
     # дата без года (12.янв) зависит от текущего года — сравниваем окончание
     got = [(g[0][4:] if e[0] and e[0].startswith("-") and g[0] else g[0],) + g[1:] for g, e in zip(got, expected)]
     assert got == expected
+
+
+def test_ascii_copy(tmp_path, monkeypatch):
+    """Tesseract из папки с русскими буквами копируется в ASCII-папку (ProgramData)."""
+    src = tmp_path / "Загрузки" / "tesseract"
+    (src / "tessdata").mkdir(parents=True)
+    (src / "tesseract.exe").write_bytes(b"x" * 10)
+    (src / "tessdata" / "rus.traineddata").write_bytes(b"y" * 20)
+    ascii_base = tmp_path / "pd"
+    monkeypatch.setenv("ProgramData", str(ascii_base))
+    target = ocr.ascii_copy(src)
+    assert str(target).isascii() and (target / "tessdata" / "rus.traineddata").stat().st_size == 20
+    assert ocr.ascii_copy(src) == target  # повторно — та же папка, без лишнего копирования
+    assert ocr.ascii_copy(ascii_base) == ascii_base  # путь без русских букв — как есть
