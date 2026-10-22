@@ -33,7 +33,12 @@ def test_norm_other():
     assert ocr.norm_org_form("null") is None
     assert ocr.guess_org_form("U", None) == (None, None)  # серый «null» — не ошибка
     assert ocr.guess_org_form("wn", "ИП Петрова Анна") == ("ИП", None)
-    assert ocr.guess_org_form(None, "Сидоров Олег Игоревич") == ("ИП", None)
+    assert ocr.guess_org_form("wn", "wn Сидоров Олег Игоревич") == ("ИП", None)  # мусор вместо «ИП»
+    assert ocr.guess_org_form(None, "Сидоров Олег Игоревич") == (None, None)      # просто ФИО — не ИП
+    assert ocr.norm_phone("7. 79991697749") == "+79991697749"  # уголок Excel перед номером
+    assert ocr.norm_date("05 07 2026 15:48:05") == "2026-07-05 15:48"
+    assert ocr.norm_date("12.янв") == "2026-01-12" or ocr.norm_date("12.янв").endswith("-01-12")
+    assert ocr.norm_date("3 марта 2025") == "2025-03-03"
 
 
 def test_parse_table_screenshot():
@@ -157,3 +162,23 @@ def test_export_selected(client):
     assert 'filename="leads_2026-10-01_2026-10-03.xlsx"' in r.headers["content-disposition"]
     ws = load_workbook(io.BytesIO(r.content)).active
     assert [ws.cell(i, 2).value for i in (2, 3)] == ["Лид 3", "Лид 1"] and ws.max_row == 3
+
+
+@pytest.mark.parametrize("fixture,expected", [
+    # Выгрузка CRM в Excel: заголовки вплотную, зелёные уголки, ИНН рядом с суммой
+    ("excel_leads.png", [("2026-07-05 23:53", "+79001234501", "Смирнова Ольга Петровна", "ИП", 1000000),
+                         ("2026-07-05 21:50", "+79001234502", "Кузнецов Павел Андреевич", "ИП", 1500000),
+                         ("2026-07-05 21:35", "+79001234503", "ЛУЧ", "ООО", 2000000)]),
+    # Таблица «Дата | ФИО | Телефон»: заголовки по центру, дата «12.янв», просто ФИО — не ИП
+    ("excel_fio.png", [("-01-12", "+79001234504", "Орлова Мария Ивановна", None, None),
+                       ("-01-12", "+79001234505", "Степан", None, None),
+                       ("-01-13", "+79001234506", "Лебедев Игорь Олегович", None, None)]),
+    # Сообщение без таблицы: ИНН из 10 цифр не телефон
+    ("telegram_msg.png", [(None, "+79001234507", "Сафина Алия Ринатовна", None, None)]),
+])
+def test_other_formats(fixture, expected):
+    rows = ocr.parse_image(Path(__file__).parent / "fixtures" / fixture)
+    got = [(r["lead_date"], r["phone"], r["name"], r["org_form"], r["amount"]) for r in rows]
+    # дата без года (12.янв) зависит от текущего года — сравниваем окончание
+    got = [(g[0][4:] if e[0] and e[0].startswith("-") and g[0] else g[0],) + g[1:] for g, e in zip(got, expected)]
+    assert got == expected
