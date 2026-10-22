@@ -14,7 +14,7 @@ from datetime import datetime
 from PIL import Image, ImageOps
 import pytesseract
 
-SCALE = 2  # увеличение картинки перед OCR: мелкий шрифт скринов так читается заметно лучше
+SCALE = 3  # увеличение картинки перед OCR: мелкий шрифт скринов так читается заметно лучше
 
 # Ключевые слова заголовков -> поле базы. Сравниваем по началу слова, в нижнем регистре.
 HEADER_KEYS = {
@@ -67,12 +67,24 @@ def norm_amount(text):
     return int(d) if d else None
 
 
+EMPTY = {"null", "none", "nan", "-", "—", "–"}
+
+
+def clean(text):
+    """Пустые значения CRM («null», «—») -> None."""
+    if text is None:
+        return None
+    t = str(text).strip()
+    return None if not t or t.lower() in EMPTY else t
+
+
 def norm_org_form(text):
-    """OCR часто путает «О» и «0»: «000», «OOO» -> «ООО»."""
+    """OCR путает похожие буквы: «000», «OOO» -> «ООО», «UN», «un» -> «ИП»."""
+    text = clean(text)
     if not text:
         return None
-    t = str(text).strip().upper()
-    t = t.translate(str.maketrans({"0": "О", "O": "О", "A": "А", "P": "Р", "C": "С", "N": "П"}))
+    t = text.upper()
+    t = t.translate(str.maketrans({"0": "О", "O": "О", "A": "А", "P": "Р", "C": "С", "N": "П", "U": "И"}))
     for f in ORG_FORMS:
         if t.startswith(f):
             return f
@@ -102,12 +114,12 @@ def norm_date(text):
 
 def strip_org_form(name, org_form):
     """«ИП Иванов И.И.» -> «Иванов И.И.», форма хранится отдельно."""
+    name = clean(name)
     if not name:
-        return name
-    name = name.strip()
-    if org_form:
-        name = re.sub(rf"^(?:{org_form}|{org_form.replace('О', '0')}|{org_form.replace('О', 'O')})\s+",
-                      "", name, flags=re.I)
+        return None
+    parts = name.split(maxsplit=1)
+    if len(parts) == 2 and norm_org_form(parts[0]) in ORG_FORMS:
+        name = parts[1]
     return name.strip(" \"'«»") or None
 
 
@@ -220,18 +232,36 @@ def parse_table(words):
     return rows
 
 
+def guess_org_form(cell, name):
+    """Форма организации: ячейка -> префикс в названии («ИП Иванов…») -> ФИО с отчеством = ИП.
+
+    Возвращает (форма или None, текст ячейки, если он непонятен — для предупреждения).
+    """
+    cell_form = norm_org_form(cell)
+    if cell_form in ORG_FORMS:
+        return cell_form, None
+    if name:
+        first = norm_org_form(name.split()[0])
+        if first in ORG_FORMS:
+            return first, None
+        if re.search(r"\b[А-ЯЁ][а-яё]+(?:вич|вна|ична|глы|кызы)\b", name):
+            return "ИП", None  # ФИО с отчеством в колонке компании — индивидуальный предприниматель
+    # Короткая латиница («U», «nul») — это нечитаемый серый «null» из CRM, не ошибка
+    if not cell or re.fullmatch(r"[A-Za-z]{1,4}", cell):
+        return None, None
+    return None, cell
+
+
 def build_row(raw, min_conf=100.0):
     """Сырые строки ячеек -> нормализованная запись + предупреждения для оператора."""
-    org = norm_org_form(raw.get("org_form"))
+    raw = {k: clean(v) for k, v in raw.items()}
     name = raw.get("name")
-    # Форма может прийти только в имени: «ООО Ромашка»
-    if not org and name:
-        org = norm_org_form(name.split()[0]) if norm_org_form(name.split()[0]) in ORG_FORMS else None
+    org, bad_org = guess_org_form(raw.get("org_form"), name)
     row = {
         "lead_date": norm_date(raw.get("lead_date")),
         "phone": norm_phone(raw.get("phone")),
         "name": strip_org_form(name, org),
-        "org_form": org if org in ORG_FORMS else (raw.get("org_form") or None),
+        "org_form": org,
         "amount": norm_amount(raw.get("amount")),
     }
     warnings = []
@@ -239,8 +269,8 @@ def build_row(raw, min_conf=100.0):
         warnings.append(f"Телефон не распознан: «{raw.get('phone', '')}»")
     if not row["name"]:
         warnings.append("Нет названия компании / ФИО")
-    if row["org_form"] and row["org_form"] not in ORG_FORMS:
-        warnings.append(f"Непонятная форма организации: «{row['org_form']}»")
+    if bad_org:
+        warnings.append(f"Непонятная форма организации: «{bad_org}»")
     if row["lead_date"] and not re.match(r"^\d{4}-\d{2}-\d{2}", row["lead_date"]):
         warnings.append(f"Дата не распознана: «{row['lead_date']}»")
     if min_conf < 60:

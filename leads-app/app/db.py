@@ -94,3 +94,9 @@ def stats(con):
     for r in con.execute("SELECT status, COUNT(*) c FROM leads GROUP BY status"):
         counts[r["status"]] = r["c"]
     return counts
+
+
+def find_by_name(con, name):
+    """Лиды с точно таким именем (без учёта регистра и лишних пробелов)."""
+    key = " ".join(str(name).split()).lower()
+    return [dict(r) for r in con.execute("SELECT * FROM leads") if " ".join((r["name"] or "").split()).lower() == key]

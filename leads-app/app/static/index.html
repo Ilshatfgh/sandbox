@@ -12,6 +12,7 @@
   <nav>
     <button class="tab active" data-tab="base">База</button>
     <button class="tab" data-tab="upload">Загрузка скринов</button>
+    <button class="tab" data-tab="report">Отчёт по отработке</button>
   </nav>
 </header>
 
@@ -54,6 +55,33 @@
     <div class="toolbar">
       <button id="saveBtn" class="primary">Сохранить в базу</button>
       <button id="clearBtn">Отменить</button>
+    </div>
+  </div>
+</section>
+
+<!-- Вкладка «Отчёт»: Excel с отработкой -> предпросмотр изменений -> применить -->
+<section id="report" class="page" hidden>
+  <ol class="muted howto">
+    <li>На вкладке «База» нажмите «Экспорт в Excel» (можно с фильтром, например «Новый»).</li>
+    <li>В файле заполните белые колонки: <b>Статус</b> (список), <b>Перезвонить</b> (дата), <b>Комментарий</b>. Серые не меняйте.</li>
+    <li>Загрузите файл сюда, проверьте изменения и нажмите «Применить».</li>
+  </ol>
+  <label id="repDrop" class="drop">
+    <input id="repFile" type="file" accept=".xlsx" hidden>
+    <b>Перетащите Excel-отчёт сюда</b> или нажмите, чтобы выбрать файл
+  </label>
+  <p id="repInfo" class="muted"></p>
+  <div id="repReview" hidden>
+    <table class="grid">
+      <thead><tr>
+        <th><input type="checkbox" id="repAll" checked></th><th>Стр.</th><th>Клиент</th>
+        <th>Статус: было → стало</th><th>Перезвонить</th><th>Комментарий</th><th>Проверка</th>
+      </tr></thead>
+      <tbody id="repBody"></tbody>
+    </table>
+    <div class="toolbar">
+      <button id="repApply" class="primary">Применить отмеченные</button>
+      <button id="repClear">Отменить</button>
     </div>
   </div>
 </section>

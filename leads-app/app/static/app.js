@@ -169,4 +169,61 @@ document.addEventListener("paste", (e) => {
   if (files.length) parseFiles(files);
 });
 
+// ---------- вкладка «Отчёт по отработке» ----------
+let repRows = [];
+
+async function parseReport(file) {
+  if (!file) return;
+  const fd = new FormData(); fd.append("file", file);
+  $("#repInfo").textContent = "Читаю отчёт…";
+  try {
+    repRows = (await api("/api/report/parse", { method: "POST", body: fd })).rows;
+    const ready = repRows.filter((r) => !r.errors.length && Object.keys(r.changes).length).length;
+    const errs = repRows.filter((r) => r.errors.length).length;
+    $("#repInfo").textContent = `Строк: ${repRows.length}. К изменению: ${ready}. С ошибками: ${errs}. Без изменений: ${repRows.length - ready - errs}.`;
+    renderReport();
+  } catch (e) { $("#repInfo").textContent = ""; toast(e.message, true); }
+}
+
+function renderReport() {
+  $("#repReview").hidden = repRows.length === 0;
+  // Сначала ошибки, потом изменения, в конце «без изменений»
+  const rank = (r) => (r.errors.length ? 0 : Object.keys(r.changes).length ? 1 : 2);
+  const order = repRows.map((r, i) => i).sort((a, b) => rank(repRows[a]) - rank(repRows[b]));
+  $("#repBody").innerHTML = order.map((i) => {
+    const r = repRows[i], l = r.lead, ch = r.changes, has = Object.keys(ch).length > 0;
+    const ok = has && !r.errors.length;
+    const cls = r.errors.length ? "err" : has ? "" : "same";
+    const who = l ? `${esc(l.name || "")}<br><span class="muted">${esc(l.phone)}</span>` : esc(r.raw_name || r.raw_phone || "—");
+    const st = l ? (ch.status ? `${esc(l.status)}<span class="arrow">→</span><b>${esc(ch.status)}</b>` : esc(l.status)) : esc(r.raw_status || "");
+    return `<tr class="${cls}" data-i="${i}">
+      <td><input type="checkbox" class="repChk" ${ok ? "checked" : "disabled"}></td>
+      <td>${r.row_no}</td><td>${who}</td><td>${st}</td>
+      <td>${esc(ch.callback_at || l?.callback_at || "")}</td>
+      <td>${ch.comment ? `<b>${esc(ch.comment)}</b>` : esc(l?.comment || "")}</td>
+      <td class="notes">${r.errors.map(esc).join("<br>") || (has ? "✓" : "без изменений")}</td>
+    </tr>`;
+  }).join("");
+}
+
+$("#repAll").onchange = (e) => document.querySelectorAll(".repChk:not(:disabled)").forEach((c) => (c.checked = e.target.checked));
+$("#repApply").onclick = async () => {
+  const picked = [...document.querySelectorAll(".repChk:checked")].map((c) => repRows[c.closest("tr").dataset.i]);
+  if (!picked.length) return toast("Ничего не отмечено", true);
+  try {
+    const res = await api("/api/report/apply", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(picked.map((r) => ({ id: r.lead.id, ...r.changes }))),
+    });
+    toast(`Обновлено лидов: ${res.updated}`);
+    repRows = []; renderReport(); $("#repInfo").textContent = "";
+  } catch (e) { toast(e.message, true); }
+};
+$("#repClear").onclick = () => { repRows = []; renderReport(); $("#repInfo").textContent = ""; };
+const repDrop = $("#repDrop");
+$("#repFile").onchange = (e) => { parseReport(e.target.files[0]); e.target.value = ""; };
+repDrop.ondragover = (e) => { e.preventDefault(); repDrop.classList.add("over"); };
+repDrop.ondragleave = () => repDrop.classList.remove("over");
+repDrop.ondrop = (e) => { e.preventDefault(); repDrop.classList.remove("over"); parseReport(e.dataTransfer.files[0]); };
+
 loadLeads();

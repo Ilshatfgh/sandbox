@@ -1,4 +1,5 @@
 """Локальный веб-сервер приложения. Открывается в браузере: http://127.0.0.1:8765"""
+import re
 from datetime import date
 from pathlib import Path
 
@@ -8,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import db, ocr
-from .export import to_xlsx
+from .export import norm_datetime, norm_status, read_report, to_xlsx
 
 STATIC = Path(__file__).parent / "static"
 app = FastAPI(title="База лидов")
@@ -137,6 +138,75 @@ def delete_lead(lead_id: int):
     con.execute("DELETE FROM leads WHERE id=?", (lead_id,))
     con.commit()
     return {"ok": True}
+
+
+# ---------- отчёт по отработке (Excel) ----------
+
+class ReportChange(BaseModel):
+    id: int
+    status: str | None = None
+    callback_at: str | None = None
+    comment: str | None = None
+
+
+@app.post("/api/report/parse")
+async def report_parse(file: UploadFile = File(...)):
+    """Разобрать отчёт и показать, что изменится. В базу не пишет."""
+    try:
+        items = read_report(file.file)
+    except Exception as e:
+        raise HTTPException(400, f"Не удалось прочитать файл: {e}")
+    result = []
+    for it in items:
+        r = {"row_no": it["row_no"], "raw_phone": it.get("phone"), "raw_name": it.get("name"),
+             "raw_status": it.get("status"), "lead": None, "errors": [], "changes": {}}
+        # 1. Ищем лида: по телефону, иначе по точному имени
+        phone = ocr.norm_phone(it.get("phone"))
+        lead = db.find_by_phones(con, [phone]).get(phone) if phone else None
+        if not lead and it.get("name"):
+            found = db.find_by_name(con, it["name"])
+            if len(found) == 1:
+                lead = found[0]
+            elif len(found) > 1:
+                r["errors"].append("Несколько лидов с таким именем — укажите телефон")
+        if not lead:
+            if not r["errors"]:
+                r["errors"].append("Клиент не найден в базе")
+            result.append(r)
+            continue
+        r["lead"] = {k: lead[k] for k in ("id", "phone", "name", "status", "callback_at", "comment")}
+        # 2. Что меняется
+        status = norm_status(it.get("status"))
+        if it.get("status") not in (None, "") and not status:
+            r["errors"].append(f"Неизвестный статус «{it['status']}»")
+        callback = norm_datetime(it.get("callback_at"))
+        if callback and not re.match(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$", callback):
+            r["errors"].append(f"Не понял дату «{callback}»")
+            callback = None
+        comment = str(it["comment"]).strip() if it.get("comment") not in (None, "") else None
+        ch = r["changes"]
+        if status and status != lead["status"]:
+            ch["status"] = status
+        if callback and callback != lead["callback_at"]:
+            ch["callback_at"] = callback
+        if comment and comment != (lead["comment"] or ""):
+            ch["comment"] = comment
+        if (ch.get("status") or lead["status"]) == "Перезвонить" and not (callback or lead["callback_at"]):
+            r["errors"].append("Статус «Перезвонить» без даты")
+        result.append(r)
+    return {"rows": result}
+
+
+@app.post("/api/report/apply")
+def report_apply(changes: list[ReportChange]):
+    """Применить подтверждённые оператором изменения."""
+    for c in changes:
+        fields = c.model_dump(exclude={"id"}, exclude_none=True)
+        if fields.get("status") and fields["status"] not in db.STATUSES:
+            raise HTTPException(400, f"Неизвестный статус: {fields['status']}")
+        db.update_lead(con, c.id, fields)
+    con.commit()
+    return {"updated": len(changes)}
 
 
 @app.get("/api/export.xlsx")
