@@ -127,7 +127,8 @@ def strip_org_form(name, org_form):
     parts = name.split(maxsplit=1)
     if len(parts) == 2 and norm_org_form(parts[0]) in ORG_FORMS:
         name = parts[1]
-    return name.strip(" \"'«»") or None
+    # Кавычки любого вида и «*» (так OCR иногда читает закрывающую кавычку) по краям — убираем
+    return name.strip(" \"'«»“”„*") or None
 
 
 # ---------- OCR ----------

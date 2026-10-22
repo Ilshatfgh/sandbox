@@ -1,18 +1,28 @@
 """Локальный веб-сервер приложения. Открывается в браузере: http://127.0.0.1:8765"""
+import os
 import re
+import threading
 from datetime import date
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import backup, db, ocr
+from . import VERSION, backup, db, ocr
 from .export import norm_datetime, norm_status, read_report, to_xlsx
 
 STATIC = Path(__file__).parent / "static"
 app = FastAPI(title="База лидов")
+
+
+@app.middleware("http")
+async def no_cache(request, call_next):
+    """Страница и скрипты не кэшируются — после обновления браузер сразу берёт новую версию."""
+    resp = await call_next(request)
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 con = db.connect()
 
 
@@ -44,7 +54,21 @@ def index():
 @app.get("/api/meta")
 def meta():
     return {"statuses": db.STATUSES, "org_forms": ocr.ORG_FORMS, "stats": db.stats(con),
-            "last_backup": backup.last_backup()}
+            "last_backup": backup.last_backup(), "version": VERSION}
+
+
+@app.get("/api/version")
+def version():
+    return {"version": VERSION}
+
+
+@app.post("/api/shutdown")
+def shutdown(request: Request):
+    """Закрыть программу: так новая версия при запуске заменяет старую. Только с этого компьютера."""
+    if request.client.host != "127.0.0.1":
+        raise HTTPException(403)
+    threading.Timer(0.5, lambda: os._exit(0)).start()  # даём ответу уйти
+    return {"ok": True}
 
 
 @app.get("/api/leads")

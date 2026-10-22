@@ -72,6 +72,7 @@ function applyFilters(skip = null) {
 
 async function loadMeta() {
   META = await api("/api/meta");
+  $("#version").textContent = `версия ${META.version}`;
   $("#backupInfo").textContent = META.last_backup ? `Бэкап: ${META.last_backup.slice(6, 16)}` : "Бэкапа ещё нет";
 }
 
