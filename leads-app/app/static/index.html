@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>База лидов</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>База лидов</h1>
+  <nav>
+    <button class="tab active" data-tab="base">База</button>
+    <button class="tab" data-tab="upload">Загрузка скринов</button>
+  </nav>
+</header>
+
+<!-- Вкладка «База»: фильтры, таблица, смена статусов, экспорт -->
+<section id="base" class="page">
+  <div id="stats" class="stats"></div>
+  <div class="toolbar">
+    <input id="q" type="search" placeholder="Поиск: имя или телефон">
+    <select id="fStatus"><option value="">Все статусы</option></select>
+    <label class="chk"><input id="fDue" type="checkbox"> Перезвонить сегодня</label>
+    <span class="spacer"></span>
+    <button id="exportBtn" class="primary">Экспорт в Excel</button>
+  </div>
+  <table class="grid">
+    <thead><tr>
+      <th>Дата лида</th><th>Телефон</th><th>Компания / ФИО</th><th>Форма</th><th class="num">Сумма</th>
+      <th>Статус</th><th>Перезвонить</th><th>Комментарий</th><th></th>
+    </tr></thead>
+    <tbody id="leadsBody"></tbody>
+  </table>
+  <p id="empty" class="muted" hidden>Лидов нет. Загрузите скрины на вкладке «Загрузка скринов».</p>
+</section>
+
+<!-- Вкладка «Загрузка»: скрины -> проверка -> сохранение -->
+<section id="upload" class="page" hidden>
+  <label id="drop" class="drop">
+    <input id="files" type="file" accept="image/*" multiple hidden>
+    <b>Перетащите скрины сюда</b>, вставьте из буфера (Ctrl+V) или нажмите, чтобы выбрать файлы
+  </label>
+  <p id="parseInfo" class="muted"></p>
+  <div id="review" hidden>
+    <p class="muted">Проверьте распознанные данные. Ячейки можно править. Жёлтые строки — дубли или ошибки распознавания.</p>
+    <table class="grid">
+      <thead><tr>
+        <th>Дата лида</th><th>Телефон</th><th>Компания / ФИО</th><th>Форма</th><th class="num">Сумма</th>
+        <th>Проверка</th><th>Действие</th>
+      </tr></thead>
+      <tbody id="reviewBody"></tbody>
+    </table>
+    <div class="toolbar">
+      <button id="saveBtn" class="primary">Сохранить в базу</button>
+      <button id="clearBtn">Отменить</button>
+    </div>
+  </div>
+</section>
+
+<div id="toast" class="toast" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
