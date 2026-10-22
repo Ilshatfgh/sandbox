@@ -1,6 +1,7 @@
 """Тесты: нормализация, распознавание тестового скрина, API импорта/статусов/экспорта.
 Запуск: python -m pytest tests"""
 import io
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -128,3 +129,19 @@ def test_report_roundtrip(client):
     assert client.post("/api/report/apply", json=[{"id": r["lead"]["id"], **r["changes"]} for r in ok]).json() == {"updated": 3}
     st = {l["phone"]: (l["status"], l["comment"]) for l in client.get("/api/leads").json()}
     assert st["+79002223344"] == ("Отказ клиента", "Дорого") and st["+79003334455"][0] == "Новый"
+
+
+def test_backup(tmp_path, monkeypatch):
+    from app import backup
+    src = tmp_path / "leads.db"
+    con = db.connect(src)
+    db.insert_lead(con, {"phone": "+79001112233", "name": "Альфа"})
+    con.commit()
+    folder = tmp_path / "backups"
+    for i in range(35):  # старые копии сверх лимита удаляются
+        (folder / f"leads_2020-01-{i:02d}.db").parent.mkdir(exist_ok=True)
+        (folder / f"leads_2020-01-{i:02d}.db").write_bytes(b"")
+    target = backup.make_backup(src, folder)
+    assert len(list(folder.glob("leads_*.db"))) == backup.KEEP
+    assert sqlite3.connect(target).execute("SELECT name FROM leads").fetchone()[0] == "Альфа"
+    assert backup.last_backup(folder) == target.name

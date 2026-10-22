@@ -1,0 +1,72 @@
+# Сборка «Базы лидов» в папку с LeadsBase.exe для Windows (Tesseract внутри).
+# Результат: Actions → последний запуск → Artifacts → LeadsBase.
+name: leads-app build
+
+on:
+  push:
+    paths: ["leads-app/**", ".github/workflows/leads-app-build.yml"]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: leads-app
+    env:
+      TESS_DIR: C:\Program Files\Tesseract-OCR
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Установить Tesseract + русский язык
+        run: |
+          choco install tesseract -y --no-progress
+          Invoke-WebRequest https://github.com/tesseract-ocr/tessdata_fast/raw/main/rus.traineddata -OutFile "$env:TESS_DIR\tessdata\rus.traineddata"
+          & "$env:TESS_DIR\tesseract.exe" --list-langs
+
+      - name: Зависимости
+        run: python -m pip install -r requirements.txt pyinstaller pytest httpx
+
+      - name: Тесты
+        run: |
+          $env:PATH = "$env:TESS_DIR;$env:PATH"
+          python -m pytest -q tests
+
+      - name: Сборка .exe
+        run: |
+          pyinstaller --noconfirm --onedir --name LeadsBase `
+            --add-data "app/static;app/static" `
+            --collect-submodules uvicorn `
+            run.py
+          # Tesseract рядом с программой: exe, dll и только нужные языки
+          $t = "dist/LeadsBase/tesseract"
+          New-Item -ItemType Directory -Force "$t/tessdata" | Out-Null
+          Copy-Item "$env:TESS_DIR\*.exe", "$env:TESS_DIR\*.dll" $t
+          Copy-Item "$env:TESS_DIR\tessdata\eng.traineddata", "$env:TESS_DIR\tessdata\rus.traineddata", "$env:TESS_DIR\tessdata\osd.traineddata" "$t/tessdata"
+          Copy-Item -Recurse "$env:TESS_DIR\tessdata\configs" "$t/tessdata/configs"
+          Copy-Item "Как запустить.txt" dist/LeadsBase/
+
+      - name: Проверка собранного .exe (запуск + распознавание скрина)
+        run: |
+          $env:LEADS_NO_BROWSER = "1"
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notlike '*Tesseract*' }) -join ';'  # только встроенный Tesseract
+          $p = Start-Process dist/LeadsBase/LeadsBase.exe -PassThru
+          for ($i = 0; $i -lt 30; $i++) {
+            try { Invoke-RestMethod http://127.0.0.1:8765/api/meta | Out-Null; break } catch { Start-Sleep 1 }
+          }
+          $res = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8765/api/parse -Form @{ files = Get-Item tests/fixtures/crm_real.png }
+          $res | ConvertTo-Json -Depth 5
+          Stop-Process $p.Id
+          if ($res.rows.Count -ne 3 -or $res.rows[1].phone -ne "+79002223344" -or $res.rows[1].org_form -ne "ИП") { throw "Сборка не распознаёт скрин" }
+          if (-not (Test-Path dist/LeadsBase/data/backups)) { throw "Нет автобэкапа" }
+          Remove-Item -Recurse -Force dist/LeadsBase/data  # не отдаём тестовые данные
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LeadsBase
+          path: leads-app/dist/LeadsBase

@@ -40,3 +40,4 @@ button.link { border: 0; background: none; color: var(--err); padding: 2px 6px; 
 .grid tr.err { background: #fde8e8; }
 .grid tr.same { color: var(--muted); }
 .arrow { color: var(--muted); padding: 0 4px; }
+.small { font-size: 12px; }

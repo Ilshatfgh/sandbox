@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import db, ocr
+from . import backup, db, ocr
 from .export import norm_datetime, norm_status, read_report, to_xlsx
 
 STATIC = Path(__file__).parent / "static"
@@ -43,7 +43,8 @@ def index():
 
 @app.get("/api/meta")
 def meta():
-    return {"statuses": db.STATUSES, "org_forms": ocr.ORG_FORMS, "stats": db.stats(con)}
+    return {"statuses": db.STATUSES, "org_forms": ocr.ORG_FORMS, "stats": db.stats(con),
+            "last_backup": backup.last_backup()}
 
 
 @app.get("/api/leads")

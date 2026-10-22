@@ -38,6 +38,7 @@ function filters() {
 
 async function loadMeta() {
   META = await api("/api/meta");
+  $("#backupInfo").textContent = META.last_backup ? `Бэкап: ${META.last_backup.slice(6, 16)}` : "Бэкапа ещё нет";
   $("#fStatus").innerHTML = `<option value="">Все статусы</option>` + options(META.statuses, $("#fStatus").value);
   // Плашки-счётчики по статусам; клик = фильтр
   $("#stats").innerHTML = META.statuses.map((s) =>

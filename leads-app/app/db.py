@@ -1,9 +1,12 @@
 """Хранилище лидов: один файл SQLite в папке data/ рядом с приложением."""
 import sqlite3
+import sys
 from datetime import datetime
 from pathlib import Path
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+# В собранном .exe данные лежат рядом с программой, а не во временной папке PyInstaller
+APP_DIR = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
+DATA_DIR = APP_DIR / "data"
 DB_PATH = DATA_DIR / "leads.db"
 
 # Порядок важен: так статусы показываются в интерфейсе и в экспорте

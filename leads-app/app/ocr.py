@@ -9,7 +9,9 @@
 import os
 import re
 import shutil
+import sys
 from datetime import datetime
+from pathlib import Path
 
 from PIL import Image, ImageOps
 import pytesseract
@@ -29,7 +31,12 @@ ORG_FORMS = ["ИП", "ООО", "АО", "ПАО", "ЗАО", "НКО", "КФХ", "
 
 
 def setup_tesseract():
-    """Ищем tesseract.exe в стандартных местах Windows, если его нет в PATH."""
+    """Ищем Tesseract: рядом с .exe (сборка) -> PATH -> стандартные папки Windows."""
+    if getattr(sys, "frozen", False):
+        bundled = Path(sys.executable).parent / "tesseract" / "tesseract.exe"
+        if bundled.exists():
+            pytesseract.pytesseract.tesseract_cmd = str(bundled)
+            return
     if shutil.which("tesseract"):
         return
     for p in (r"C:\Program Files\Tesseract-OCR\tesseract.exe",
