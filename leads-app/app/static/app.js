@@ -1,4 +1,4 @@
-// Интерфейс приложения: вкладка «База» и вкладка «Загрузка скринов»
+// Интерфейс приложения: вкладки «База», «Загрузка лидов», «Отчёт по отработке»
 const $ = (s) => document.querySelector(s);
 let META = { statuses: [], org_forms: [], stats: {} };
 let reviewRows = []; // распознанные, но ещё не сохранённые строки
@@ -315,13 +315,17 @@ $("#exportBtn").onclick = async () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
 
-// ---------- вкладка «Загрузка скринов» ----------
+// ---------- вкладка «Загрузка лидов»: скрины и файлы ----------
 async function parseFiles(files) {
-  files = [...files].filter((f) => f.type.startsWith("image/"));
+  // Скрины и файлы с готовыми данными; остальное (например, PDF) — сразу понятное сообщение
+  const ok = /\.(png|jpe?g|webp|bmp|gif|tiff?|xlsx|xlsm|xls|csv|docx|doc|txt)$/i;
+  const bad = [...files].filter((f) => !f.type.startsWith("image/") && !ok.test(f.name));
+  if (bad.length) toast(`Не поддерживается: ${bad.map((f) => f.name).join(", ")}`, true);
+  files = [...files].filter((f) => !bad.includes(f));
   if (!files.length) return;
   const fd = new FormData();
   files.forEach((f, i) => fd.append("files", f, f.name || `screenshot_${i + 1}.png`));
-  $("#parseInfo").textContent = `Распознаю ${files.length} файл(ов)…`;
+  $("#parseInfo").textContent = `Обрабатываю ${files.length} файл(ов)…`;
   try {
     const res = await api("/api/parse", { method: "POST", body: fd });
     reviewRows = reviewRows.concat(res.rows);
@@ -337,7 +341,7 @@ function renderReview() {
     if (r.dup_lead) notes.unshift(`Уже в базе: ${r.dup_lead.name || ""} (${r.dup_lead.status})`);
     if (r.dup_in_batch) notes.unshift("Повтор в этой загрузке");
     // По умолчанию: дубль пропускаем, новый добавляем
-    const action = r.action || (r.dup_lead || r.dup_in_batch ? "skip" : "add");
+    const action = r.action || (r.dup_lead || r.dup_in_batch || !r.phone ? "skip" : "add"); // без телефона — не сохраняем
     r.action = action;
     const acts = [["add", "Добавить"], ["skip", "Пропустить"]].concat(r.dup_lead ? [["update", "Обновить в базе"]] : []);
     return `<tr data-i="${i}" class="${notes.length ? "warn" : ""}">
@@ -346,6 +350,7 @@ function renderReview() {
       <td contenteditable data-f="name">${esc(r.name)}</td>
       <td><select data-f="org_form"><option></option>${options(META.org_forms, r.org_form)}</select></td>
       <td contenteditable data-f="amount" class="num">${fmtAmount(r.amount)}</td>
+      <td class="muted small">${esc(r.source)}</td>
       <td class="notes">${notes.map(esc).join("<br>") || "✓"}</td>
       <td><select data-f="action">${acts.map(([v, t]) => `<option value="${v}" ${v === action ? "selected" : ""}>${t}</option>`).join("")}</select></td>
     </tr>`;

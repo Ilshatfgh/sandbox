@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import VERSION, backup, db, ocr
+from . import files as files_mod
 from .export import norm_datetime, norm_status, read_report, to_xlsx
 
 STATIC = Path(__file__).parent / "static"
@@ -78,11 +79,16 @@ def leads(status: str | None = None, q: str | None = None, callback_due: bool = 
 
 @app.post("/api/parse")
 async def parse(files: list[UploadFile] = File(...)):
-    """Распознать скрины. В базу ничего не пишет — оператор сначала проверяет результат."""
+    """Скрины и файлы (Excel, CSV, Word, текст) -> лиды. В базу ничего не пишет —
+    оператор сначала проверяет результат."""
     rows, errors = [], []
     for f in files:
         try:
-            for r in ocr.parse_image(f.file):
+            is_doc = Path(f.filename or "").suffix.lower() in files_mod.DOC_EXT | {".doc"}
+            found = files_mod.parse_document(f.filename, f.file) if is_doc else ocr.parse_image(f.file)
+            if not found:
+                errors.append(f"{f.filename}: телефоны не найдены")
+            for r in found:
                 r["source"] = f.filename
                 rows.append(r)
         except ocr.TesseractNotFound:

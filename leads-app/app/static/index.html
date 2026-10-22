@@ -11,7 +11,7 @@
   <h1>База лидов</h1>
   <nav>
     <button class="tab active" data-tab="base">База</button>
-    <button class="tab" data-tab="upload">Загрузка скринов</button>
+    <button class="tab" data-tab="upload">Загрузка лидов</button>
     <button class="tab" data-tab="report">Отчёт по отработке</button>
   </nav>
   <span class="spacer"></span>
@@ -52,7 +52,7 @@
     <thead><tr id="leadsHead"></tr></thead>
     <tbody id="leadsBody"></tbody>
   </table>
-  <p id="empty" class="muted" hidden>Лидов нет. Загрузите скрины на вкладке «Загрузка скринов».</p>
+  <p id="empty" class="muted" hidden>Лидов нет. Загрузите скрины или файлы на вкладке «Загрузка лидов».</p>
   <!-- Выпадающий фильтр колонки (один на страницу, позиционируется под заголовком) -->
   <div id="colFilter" class="card colfilter" hidden>
     <input id="cfSearch" type="search" placeholder="Поиск значения">
@@ -68,8 +68,9 @@
 <!-- Вкладка «Загрузка»: скрины -> проверка -> сохранение -->
 <section id="upload" class="page" hidden>
   <label id="drop" class="drop">
-    <input id="files" type="file" accept="image/*" multiple hidden>
-    <b>Перетащите скрины сюда</b>, вставьте из буфера (Ctrl+V) или нажмите, чтобы выбрать файлы
+    <input id="files" type="file" accept="image/*,.xlsx,.xlsm,.xls,.csv,.docx,.txt" multiple hidden>
+    <b>Перетащите сюда скрины или файлы</b> — Excel, CSV, Word, текст; скрин можно вставить из буфера (Ctrl+V)
+    <div class="muted small">или нажмите, чтобы выбрать. Несколько файлов сразу, в файле — сколько угодно лидов</div>
   </label>
   <p id="parseInfo" class="muted"></p>
   <div id="review" hidden>
@@ -77,7 +78,7 @@
     <table class="grid">
       <thead><tr>
         <th>Дата лида</th><th>Телефон</th><th>Компания / ФИО</th><th>Форма</th><th class="num">Сумма</th>
-        <th>Проверка</th><th>Действие</th>
+        <th>Файл</th><th>Проверка</th><th>Действие</th>
       </tr></thead>
       <tbody id="reviewBody"></tbody>
     </table>

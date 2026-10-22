@@ -196,3 +196,57 @@ def test_ascii_copy(tmp_path, monkeypatch):
     assert str(target).isascii() and (target / "tessdata" / "rus.traineddata").stat().st_size == 20
     assert ocr.ascii_copy(src) == target  # повторно — та же папка, без лишнего копирования
     assert ocr.ascii_copy(ascii_base) == ascii_base  # путь без русских букв — как есть
+
+
+FIX = Path(__file__).parent / "fixtures"
+
+
+def test_documents():
+    from app.files import parse_document
+    got = lambda f: [(r["lead_date"], r["phone"], r["name"], r["org_form"], r["amount"])
+                     for r in parse_document(f, open(FIX / f, "rb"))]
+    # Excel: 2 листа, на втором заголовок в 4-й строке, телефоны числами, даты — даты Excel
+    assert got("leads.xlsx") == [
+        ("2026-07-05 23:53", "+79001110001", "Смирнова Ольга Петровна", "ИП", 1000000),
+        ("2026-07-05 21:50", "+79001110002", "ЛУЧ", "ООО", 1500000),
+        ("2026-10-01 12:30", "+79001110003", "Орлов Иван Сергеевич", None, 300000),
+        ("2026-10-02", "+79001110004", "Белова Анна", None, 750000),
+        ("2026-10-03", None, "Без телефона", None, 100000),   # покажется с предупреждением, не сохранится
+    ]
+    # CSV из русского Excel: cp1251, «;», телефоны в разной записи
+    assert got("leads.csv") == [
+        ("2026-10-12", "+79001110005", "Кузнецов Павел Андреевич", "ИП", 2000000),
+        ("2026-10-13", "+79001110006", "Альфа", "ООО", 500000),
+    ]
+    # Word: таблица + клиент в обычном тексте
+    assert got("leads.docx") == [
+        (None, "+79001110007", "Лебедев Игорь Олегович", None, 400000),
+        (None, "+79001110008", "Новикова Мария", None, 1200000),
+        (None, "+79001110009", "Вектор", "ООО", 900000),
+    ]
+
+
+def test_big_excel_upload(client, tmp_path):
+    """Файл на 1500 лидов: все разобраны, дубли внутри файла и с базой помечены."""
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Телефон", "ФИО", "Сумма"])
+    for i in range(1500):
+        ws.append([f"7900{i:07d}", f"Клиент {i}", 100000 + i])
+    ws.append(["79000000001", "Повтор", 1])  # дубль внутри файла
+    path = tmp_path / "big.xlsx"
+    wb.save(path)
+    client.post("/api/leads/import", json=[{"phone": "79000000002", "name": "Уже в базе"}])
+    with open(path, "rb") as f:
+        res = client.post("/api/parse", files=[("files", ("big.xlsx", f, "application/octet-stream"))]).json()
+    rows = res["rows"]
+    assert len(rows) == 1501 and not res["errors"]
+    assert rows[-1]["dup_in_batch"] and rows[2]["dup_lead"]["name"] == "Уже в базе"
+    imp = [{k: r[k] for k in ("lead_date", "phone", "name", "org_form", "amount")} for r in rows[:-1]]
+    assert client.post("/api/leads/import", json=imp).json()["added"] == 1499
+
+
+def test_unsupported_file(client):
+    res = client.post("/api/parse", files=[("files", ("old.doc", b"xx", "application/msword"))]).json()
+    assert res["rows"] == [] and "сохраните как .docx" in res["errors"][0]

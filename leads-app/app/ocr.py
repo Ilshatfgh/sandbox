@@ -433,7 +433,8 @@ def build_row(raw, min_conf=100.0):
     }
     warnings = []
     if not row["phone"]:
-        warnings.append(f"Телефон не распознан: «{raw.get('phone', '')}»")
+        warnings.append(f"Телефон не распознан: «{raw['phone']}»" if raw.get("phone")
+                        else "Нет телефона — строка не будет сохранена")
     if not row["name"]:
         warnings.append("Нет названия компании / ФИО")
     if bad_org:
@@ -467,7 +468,7 @@ def free_text_row(text, phone):
         "name": org.group(2).strip() if org else (fio.group(1) if fio else None),
         "lead_date": date.group(1) if date else None,
     })
-    row["warnings"].insert(0, "Скрин без таблицы — данные найдены по тексту, проверьте")
+    row["warnings"].insert(0, "Без таблицы — данные найдены по тексту, проверьте")
     return row
 
 

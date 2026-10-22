@@ -64,12 +64,13 @@ def list_leads(con, status=None, q=None, callback_due=False):
 
 def find_by_phones(con, phones):
     """Словарь phone -> лид для уже существующих в базе телефонов."""
-    phones = [p for p in phones if p]
-    if not phones:
-        return {}
-    marks = ",".join("?" * len(phones))
-    rows = con.execute(f"SELECT * FROM leads WHERE phone IN ({marks})", phones)
-    return {r["phone"]: dict(r) for r in rows}
+    phones = list({p for p in phones if p})
+    found = {}
+    for i in range(0, len(phones), 500):  # лимит параметров SQLite — большие файлы частями
+        chunk = phones[i:i + 500]
+        rows = con.execute(f"SELECT * FROM leads WHERE phone IN ({','.join('?' * len(chunk))})", chunk)
+        found.update({r["phone"]: dict(r) for r in rows})
+    return found
 
 
 def insert_lead(con, row):
