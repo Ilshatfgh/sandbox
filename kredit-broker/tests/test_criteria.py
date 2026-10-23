@@ -138,3 +138,9 @@ def test_pct_of_month_revenue():
                                      arbitr_defendant_sum="0"), [])["status"] == STATUS_OK
     assert evaluate_lender(l, client(revenue_year="", arbitr_defendant_sum="0",
                                      loan_payments_month="1"), [])["status"] == STATUS_MAYBE
+
+
+def test_sort_by_commission_text():
+    a, b = lender("Акт", amount_max=10e6), lender("Шкала", amount_max=10e6)
+    a["commission"], b["commission"] = "по акту", "1,3–2,1"
+    assert [r["lender"]["name"] for r in match([a, b], client(), [])["results"]] == ["Шкала", "Акт"]

@@ -183,6 +183,12 @@ def fmt_money(x):
     return f"{fmt_num(x)} ₽"
 
 
+def commission_value(text):
+    """Первое число из поля вознаграждения: '1,3–2,1' -> 1.3; 'по акту' -> 0 (для сортировки)."""
+    m = re.search(r"\d+(?:[.,]\d+)?", str(text or ""))
+    return float(m.group().replace(",", ".")) if m else 0.0
+
+
 def months_between(d1: date, d2: date) -> int:
     m = (d2.year - d1.year) * 12 + (d2.month - d1.month)
     if d2.day < d1.day:
@@ -417,7 +423,7 @@ def match(lenders, client, custom_fields):
     results = [evaluate_lender(l, client, custom_fields) for l in active]
     order = {STATUS_OK: 0, STATUS_MAYBE: 1, STATUS_NO: 2}
     results.sort(key=lambda r: (order[r["status"]], -r["score"],
-                                -(parse_money(r["lender"].get("commission")) or 0),
+                                -commission_value(r["lender"].get("commission")),
                                 r["lender"].get("name", "")))
 
     stops = [msg for key, msg in GLOBAL_STOPS if client.get(key) == YES]
