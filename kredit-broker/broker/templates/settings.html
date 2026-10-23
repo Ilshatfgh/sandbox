@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Настройки{% endblock %}
+{% block content %}
+<h1>Настройки</h1>
+
+<section class="panel">
+  <h2>Дополнительные критерии</h2>
+  <p class="hint">Любые требования, которых нет в стандартной анкете. Критерий появится в анкете клиента
+    и в карточке каждого кредитора.</p>
+  {% if cfs %}
+  <table class="list">
+    {% for cf in cfs %}
+    <tr><td>{{ cf.name }}</td><td class="muted">{{ 'да / нет' if cf.kind == 'bool' else 'число' }}</td>
+      <td class="actions"><form method="post" action="{{ url_for('cf_delete', fid=cf.id) }}">
+        <button class="btn small danger" onclick="return confirm('Удалить критерий?')">Удалить</button></form></td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+  <form method="post" class="row">
+    <input name="name" placeholder="Например: Есть госконтракты" required>
+    <select name="kind"><option value="bool">да / нет</option><option value="number">число</option></select>
+    <button class="btn primary">Добавить</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Перенос кредиторов</h2>
+  <p class="hint">Файл с кредиторами и их условиями — чтобы передать коллеге или перенести на другой ПК.
+    При импорте кредиторы с тем же названием и продуктом обновляются, новые добавляются.</p>
+  <div class="row">
+    <a class="btn" href="{{ url_for('export') }}">Выгрузить кредиторов (.json)</a>
+    <form method="post" action="{{ url_for('import_') }}" enctype="multipart/form-data" class="row">
+      <input type="file" name="file" accept=".json" required>
+      <button class="btn">Загрузить</button>
+    </form>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Резервная копия</h2>
+  <p class="hint">Все данные (кредиторы, клиенты, файлы) лежат в папке:<br><code>{{ data_dir }}</code><br>
+    Для полной копии скопируйте эту папку целиком. Кнопка ниже скачивает только базу без вложений.</p>
+  <a class="btn" href="{{ url_for('backup') }}">Скачать базу</a>
+</section>
+{% endblock %}

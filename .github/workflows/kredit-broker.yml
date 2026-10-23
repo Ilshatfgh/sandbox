@@ -1,0 +1,30 @@
+# Тесты и сборка KreditBroker.exe под Windows.
+# Готовый .exe — во вкладке Actions -> последний запуск -> Artifacts.
+name: kredit-broker
+
+on:
+  push:
+    paths: ["kredit-broker/**", ".github/workflows/kredit-broker.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: kredit-broker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pytest pyinstaller
+      - run: python -m pytest -q
+      - run: >
+          pyinstaller --noconfirm --onefile --name KreditBroker
+          --add-data "broker/templates;broker/templates"
+          --add-data "broker/static;broker/static" run.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KreditBroker-windows
+          path: kredit-broker/dist/KreditBroker.exe

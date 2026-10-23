@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}{{ lender.name or 'Новый кредитор' }}{% endblock %}
+{% block content %}
+<div class="head">
+  <h1>{{ lender.name or 'Новый кредитор' }} {% if lender.product %}<span class="muted">{{ lender.product }}</span>{% endif %}</h1>
+  <a class="btn" href="{{ url_for('lenders') }}">← К списку</a>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="card-form">
+  <fieldset>
+    <legend>Карточка</legend>
+    <div class="grid">
+      {% for f in LENDER_INFO %}
+        <label class="{{ 'wide' if f.type == 'textarea' }}">{{ f.label }}
+          {% if f.type == 'textarea' %}
+            <textarea name="{{ f.key }}" rows="3">{{ lender[f.key] or '' }}</textarea>
+          {% else %}
+            <input name="{{ f.key }}" value="{{ lender[f.key] or '' }}" {{ 'required' if f.key == 'name' }}
+                   placeholder="{{ f.hint or '' }}">
+          {% endif %}
+        </label>
+      {% endfor %}
+      <label class="check"><input type="checkbox" name="active" value="1" {{ 'checked' if lender.active }}>
+        Участвует в подборе</label>
+    </div>
+  </fieldset>
+
+  <p class="hint">Заполняйте только те требования, что есть у кредитора; пустое = не проверяется.
+    <b>«Мягкое»</b> — несоответствие не отсекает кредитора, а помечает его «условно» (можно договориться).</p>
+
+  {% for group, items in LENDER_CRITERIA|groups %}
+  <fieldset>
+    <legend>{{ group }}</legend>
+    {% for c in items %}
+      {% set cur = lender.criteria.get(c.key, {}) %}
+      {% set v = cur.get('v') %}
+      <div class="crit">
+        <div class="crit-label">{{ c.label }}{% if c.hint %}<span class="muted"> · {{ c.hint }}</span>{% endif %}</div>
+        <div class="crit-input">
+          {% if c.kind in LIST_KINDS %}
+            <div class="checklist {{ 'long' if c.options|length > 12 }}">
+              {% if c.options|length > 12 %}<input class="filter" placeholder="Поиск…">{% endif %}
+              {% for o in c.options %}
+                <label><input type="checkbox" name="c_{{ c.key }}" value="{{ o }}" {{ 'checked' if v and o in v }}> {{ o }}</label>
+              {% endfor %}
+            </div>
+          {% elif c.kind in BOOL_KINDS %}
+            <label class="check"><input type="checkbox" name="c_{{ c.key }}" value="1" {{ 'checked' if v }}> да</label>
+          {% elif c.kind in ('okved_in', 'okved_not_in') %}
+            <input name="c_{{ c.key }}" value="{{ v or '' }}">
+          {% else %}
+            <input name="c_{{ c.key }}" inputmode="decimal"
+                   value="{{ (fmt_money(v)|replace(' ₽', '') if c.money else fmt_num(v)) if v is not none else '' }}">
+          {% endif %}
+        </div>
+        <label class="soft" title="Несоответствие не исключает кредитора">
+          <input type="checkbox" name="s_{{ c.key }}" value="1" {{ 'checked' if cur.get('soft') }}> мягкое</label>
+      </div>
+    {% endfor %}
+  </fieldset>
+  {% endfor %}
+
+  <fieldset>
+    <legend>Дополнительные критерии</legend>
+    {% if not cfs %}
+      <p class="muted">Нет своих критериев. Добавить любые (например, «Есть госконтракты», «Лет на рынке у
+        собственника») можно в <a href="{{ url_for('settings') }}">Настройках</a>.</p>
+    {% endif %}
+    {% for cf in cfs %}
+      {% set cur = lender.criteria.get('cf' ~ cf.id, {}) %}
+      <div class="crit">
+        <div class="crit-label">{{ cf.name }}</div>
+        <div class="crit-input">
+          <select name="cf{{ cf.id }}_mode">
+            <option value="">не важно</option>
+            {% if cf.kind == 'bool' %}
+              <option value="yes" {{ 'selected' if cur.mode == 'yes' }}>должно быть «да»</option>
+              <option value="no" {{ 'selected' if cur.mode == 'no' }}>должно быть «нет»</option>
+            {% else %}
+              <option value="min" {{ 'selected' if cur.mode == 'min' }}>не меньше</option>
+              <option value="max" {{ 'selected' if cur.mode == 'max' }}>не больше</option>
+            {% endif %}
+          </select>
+          {% if cf.kind == 'number' %}
+            <input name="cf{{ cf.id }}_v" inputmode="decimal" class="short"
+                   value="{{ fmt_num(cur.v) if cur.v is not none and cur.v != '' else '' }}">
+          {% endif %}
+        </div>
+        <label class="soft"><input type="checkbox" name="cf{{ cf.id }}_soft" value="1" {{ 'checked' if cur.soft }}> мягкое</label>
+      </div>
+    {% endfor %}
+  </fieldset>
+
+  <fieldset>
+    <legend>Исходные материалы (скриншоты, PDF, Word)</legend>
+    {% if files %}
+      <div class="files">
+      {% for a in files %}
+        <div class="file">
+          {% set ext = a.filename.rsplit('.', 1)[-1].lower() %}
+          {% if ext in ('png', 'jpg', 'jpeg', 'gif', 'webp') %}
+            <a href="{{ url_for('file_open', aid=a.id) }}" target="_blank"><img src="{{ url_for('file_open', aid=a.id) }}" alt=""></a>
+          {% endif %}
+          <a href="{{ url_for('file_open', aid=a.id) }}" target="_blank">{{ a.filename }}</a>
+          <button class="btn small danger" formaction="{{ url_for('file_delete', aid=a.id) }}" formnovalidate
+                  onclick="return confirm('Удалить файл?')">×</button>
+        </div>
+      {% endfor %}
+      </div>
+    {% endif %}
+    <input type="file" name="files" multiple>
+  </fieldset>
+
+  <div class="bar">
+    <button class="btn primary">Сохранить</button>
+    {% if lender.id %}
+      <button class="btn danger" formaction="{{ url_for('lender_delete', lid=lender.id) }}" formnovalidate
+              onclick="return confirm('Удалить кредитора со всеми файлами?')">Удалить</button>
+    {% endif %}
+  </div>
+</form>
+{% endblock %}

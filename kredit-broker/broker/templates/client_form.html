@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}{{ client.data.name or 'Новый клиент' }}{% endblock %}
+{% block content %}
+{% set d = client.data %}
+<div class="head">
+  <h1>{{ d.name or 'Новый клиент' }}</h1>
+  <a class="btn" href="{{ url_for('clients') }}">← К списку</a>
+</div>
+
+<form method="post" class="card-form" id="client-form">
+  <fieldset class="inn-box">
+    <legend>Шаг 1. Проверка по ИНН</legend>
+    <div class="row">
+      <input name="inn" value="{{ d.inn or '' }}" placeholder="ИНН (10 или 12 цифр)" inputmode="numeric" class="inn">
+      <button class="btn primary" name="action" value="check">Проверить и заполнить</button>
+      <span class="muted">ЕГРЮЛ/ЕГРИП, бухотчётность (ГИР БО), реестр банкротов. Нужен интернет.</span>
+    </div>
+    {% if client.checks %}
+      <div class="checks">
+      {% for r in client.checks %}
+        <div class="check-item {{ 'err' if r.error else '' }}">
+          <b><a href="{{ r.url }}" target="_blank">{{ r.source }}</a></b>
+          {% if r.error %}<span class="bad">не ответил: {{ r.error }}</span>{% endif %}
+          {% for f in r.facts %}<div>{{ f }}</div>{% endfor %}
+        </div>
+      {% endfor %}
+      </div>
+    {% endif %}
+    {% if links %}
+      <div class="links"><span class="muted">Проверить вручную:</span>
+        {% for title, url in links %}<a href="{{ url }}" target="_blank">{{ title }}</a>{% endfor %}
+      </div>
+    {% endif %}
+  </fieldset>
+
+  <p class="hint">Шаг 2. Дополните анкету по итогам интервью. Пустое поле = «неизвестно»: кредитор с таким
+    требованием попадёт в «условно» с пометкой, что уточнить.</p>
+
+  {% for group, items in CLIENT_FIELDS|groups %}
+  <fieldset>
+    <legend>{{ group }}</legend>
+    <div class="grid">
+    {% for f in items if f.key != 'inn' %}
+      <label class="{{ 'wide' if f.type == 'textarea' }}">{{ f.label }}
+        {% if f.type == 'textarea' %}
+          <textarea name="{{ f.key }}" rows="4">{{ d[f.key] or '' }}</textarea>
+        {% elif f.type == 'choice' %}
+          <select name="{{ f.key }}">
+            <option value="">—</option>
+            {% for o in f.options %}<option {{ 'selected' if d[f.key] == o }}>{{ o }}</option>{% endfor %}
+          </select>
+        {% elif f.type == 'tri' %}
+          <select name="{{ f.key }}" class="tri">
+            <option value="">неизвестно</option>
+            <option value="no" {{ 'selected' if d[f.key] == 'no' }}>нет</option>
+            <option value="yes" {{ 'selected' if d[f.key] == 'yes' }}>да</option>
+          </select>
+        {% elif f.type == 'date' %}
+          <input type="date" name="{{ f.key }}" value="{{ d[f.key] or '' }}">
+          {% if f.key == 'reg_date' and age %}<span class="muted">срок работы: {{ age }}</span>{% endif %}
+        {% else %}
+          <input name="{{ f.key }}" value="{{ d[f.key] or '' }}" placeholder="{{ f.hint or '' }}"
+                 {{ 'inputmode=decimal' if f.type in ('money', 'number') }}>
+          {% if f.type == 'money' and d[f.key] %}<span class="muted money-hint"></span>{% endif %}
+        {% endif %}
+      </label>
+    {% endfor %}
+    </div>
+  </fieldset>
+  {% endfor %}
+
+  {% if cfs %}
+  <fieldset>
+    <legend>Дополнительные критерии</legend>
+    <div class="grid">
+    {% for cf in cfs %}
+      {% set k = 'cf' ~ cf.id %}
+      <label>{{ cf.name }}
+        {% if cf.kind == 'bool' %}
+          <select name="{{ k }}">
+            <option value="">неизвестно</option>
+            <option value="no" {{ 'selected' if d[k] == 'no' }}>нет</option>
+            <option value="yes" {{ 'selected' if d[k] == 'yes' }}>да</option>
+          </select>
+        {% else %}
+          <input name="{{ k }}" value="{{ d[k] or '' }}" inputmode="decimal">
+        {% endif %}
+      </label>
+    {% endfor %}
+    </div>
+  </fieldset>
+  {% endif %}
+
+  <div class="bar">
+    <button class="btn" name="action" value="save">Сохранить</button>
+    <button class="btn primary" name="action" value="match">Сохранить и подобрать кредиторов →</button>
+    {% if client.id %}
+      <button class="btn danger" formaction="{{ url_for('client_delete', cid=client.id) }}"
+              onclick="return confirm('Удалить клиента?')">Удалить</button>
+    {% endif %}
+  </div>
+</form>
+{% endblock %}

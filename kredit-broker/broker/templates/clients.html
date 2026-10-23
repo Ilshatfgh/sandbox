@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Клиенты{% endblock %}
+{% block content %}
+<div class="head">
+  <h1>Клиенты</h1>
+  <form class="search" method="get"><input name="q" value="{{ q }}" placeholder="Название или ИНН"></form>
+  <a class="btn primary" href="{{ url_for('client_edit') }}">+ Новый клиент</a>
+</div>
+{% if not clients %}
+  <p class="empty">{{ 'Ничего не найдено.' if q else 'Клиентов пока нет. Нажмите «Новый клиент», введите ИНН и запустите проверку.' }}</p>
+{% else %}
+<table class="list">
+  <thead><tr><th>Клиент</th><th>ИНН</th><th>Запрос</th><th>Изменён</th><th></th></tr></thead>
+  <tbody>
+  {% for c in clients %}
+    <tr>
+      <td><a href="{{ url_for('client_edit', cid=c.id) }}"><b>{{ c.name or 'Без названия' }}</b></a></td>
+      <td>{{ c.inn }}</td>
+      <td>{{ c.data.amount or '' }}</td>
+      <td class="muted">{{ c.updated_at }}</td>
+      <td class="actions"><a class="btn small" href="{{ url_for('client_result', cid=c.id) }}">Подбор</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

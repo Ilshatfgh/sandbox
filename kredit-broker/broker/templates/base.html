@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}Кредитный брокер{% endblock %} — Подбор</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="top">
+  <div class="brand">Подбор кредитора</div>
+  <nav>
+    {% set ep = request.endpoint or '' %}
+    <a href="{{ url_for('clients') }}" class="{{ 'on' if ep.startswith('client') }}">Клиенты</a>
+    <a href="{{ url_for('lenders') }}" class="{{ 'on' if ep.startswith('lender') }}">Кредиторы</a>
+    <a href="{{ url_for('monitor_page') }}" class="{{ 'on' if ep == 'monitor_page' }}">Сайты кредиторов</a>
+    <a href="{{ url_for('settings') }}" class="{{ 'on' if ep == 'settings' }}">Настройки</a>
+  </nav>
+</header>
+<main>
+  {% for cat, msg in get_flashed_messages(with_categories=true) %}
+    <div class="flash {{ cat }}">{{ msg }}</div>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

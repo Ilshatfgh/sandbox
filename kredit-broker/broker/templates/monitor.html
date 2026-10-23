@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Сайты кредиторов{% endblock %}
+{% block content %}
+<div class="head">
+  <h1>Сайты кредиторов</h1>
+  {% if lenders %}
+  <form method="post"><button class="btn primary">Проверить все</button></form>
+  {% endif %}
+</div>
+<p class="hint">Программа запоминает текст страницы с условиями и при следующей проверке показывает, что
+  изменилось. Адрес страницы задаётся в карточке кредитора («Страница с условиями»). Первая проверка
+  только сохраняет снимок. Условия в карточке после изменений правьте вручную.</p>
+
+{% if not lenders %}
+  <p class="empty">Ни у одного кредитора не указана страница с условиями.</p>
+{% endif %}
+
+{% for l in lenders %}
+  {% set r = results.get(l.id) %}
+  {% set s = snaps.get(l.id) %}
+  <div class="lcard {{ {'changed': 'maybe', 'error': 'no', 'same': 'ok', 'new': 'ok'}.get(r.status, '') if r else '' }}">
+    <div class="lhead">
+      <div><a href="{{ url_for('lender_edit', lid=l.id) }}"><b>{{ l.name }}</b></a>
+        {% if l.product %}<span class="muted"> — {{ l.product }}</span>{% endif %}
+        <div class="muted"><a href="{{ l.watch_url }}" target="_blank">{{ l.watch_url }}</a></div></div>
+      <form method="post"><input type="hidden" name="lid" value="{{ l.id }}"><button class="btn small">Проверить</button></form>
+    </div>
+    <div class="meta">
+      <span>Проверено: {{ s.checked_at if s else 'ни разу' }}</span>
+      {% if s and s.changed_at %}<span>Последнее изменение: {{ s.changed_at }}</span>{% endif %}
+    </div>
+    {% if r %}
+      {% if r.status == 'new' %}<p>Снимок сохранён. Изменения будут видны при следующей проверке.</p>
+      {% elif r.status == 'same' %}<p>Без изменений.</p>
+      {% elif r.status == 'error' %}<p class="bad">Не удалось открыть страницу: {{ r.error }}</p>
+      {% else %}
+        <p><b>Страница изменилась — проверьте условия:</b></p>
+        <div class="diff">{% for sign, line in r.changes %}<div class="{{ 'add' if sign == '+' else 'del' }}">{{ sign }} {{ line }}</div>{% endfor %}</div>
+      {% endif %}
+    {% endif %}
+  </div>
+{% endfor %}
+{% endblock %}

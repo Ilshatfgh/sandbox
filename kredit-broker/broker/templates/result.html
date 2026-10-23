@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Подбор: {{ client.data.name }}{% endblock %}
+{% block content %}
+{% set ok = res.results|selectattr('status', 'equalto', OK)|list %}
+{% set maybe = res.results|selectattr('status', 'equalto', MAYBE)|list %}
+{% set no = res.results|selectattr('status', 'equalto', NO)|list %}
+<div class="head">
+  <h1>Подбор: {{ client.data.name or 'клиент' }} <span class="muted">ИНН {{ client.data.inn or '—' }}</span></h1>
+  <div class="no-print">
+    <a class="btn" href="{{ url_for('client_edit', cid=client.id) }}">← Анкета</a>
+    <button class="btn" onclick="window.print()">Печать / PDF</button>
+  </div>
+</div>
+<p class="muted print-only">Сформировано {{ now }}</p>
+
+{% if res.stops %}
+  <div class="stop">
+    <b>Стоп-факторы — заявку направлять не рекомендуется:</b>
+    <ul>{% for s in res.stops %}<li>{{ s }}</li>{% endfor %}</ul>
+  </div>
+{% endif %}
+
+<div class="stats">
+  <div class="stat ok"><b>{{ ok|length }}</b> подходят</div>
+  <div class="stat maybe"><b>{{ maybe|length }}</b> условно</div>
+  <div class="stat no"><b>{{ no|length }}</b> не подходят</div>
+</div>
+
+<section class="summary">
+  <div class="head small"><h2>Резюме</h2>
+    <button class="btn small no-print" data-copy="#summary-text">Скопировать</button></div>
+  <pre id="summary-text">{{ summary }}</pre>
+</section>
+
+{% macro lender_card(r) %}
+  {% set l = r.lender %}
+  <div class="lcard {{ r.status }}">
+    <div class="lhead">
+      <div><a href="{{ url_for('lender_edit', lid=l.id) }}"><b>{{ l.name }}</b></a>
+        {% if l.product %}<span class="muted"> — {{ l.product }}</span>{% endif %}</div>
+      <div class="score" title="Доля выполненных требований">{{ r.score }}%</div>
+    </div>
+    <div class="meta">
+      {% if l.rate %}<span>Ставка: {{ l.rate }}</span>{% endif %}
+      {% if l.commission %}<span>Вознагр.: {{ l.commission }}%</span>{% endif %}
+      {% if l.decision_time %}<span>Решение: {{ l.decision_time }}</span>{% endif %}
+    </div>
+    {% if r.failed or r.unknown %}
+    <ul class="reasons">
+      {% for f in r.failed %}
+        <li class="{{ 'soft' if f.soft else 'hard' }}">{{ '◐' if f.soft else '✕' }} {{ f.label }}: {{ f.msg }}
+          {% if f.soft %}<span class="muted">(мягкое)</span>{% endif %}</li>
+      {% endfor %}
+      {% for u in r.unknown %}<li class="unknown">? Уточнить — {{ u.label }} ({{ u.msg }})</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% if r.status != NO and (l.contacts or l.docs) %}
+      <details class="no-print"><summary>Контакты и документы</summary>
+        {% if l.contacts %}<p><b>Контакты:</b><br>{{ l.contacts|replace('\n', '<br>'|safe) }}</p>{% endif %}
+        {% if l.docs %}<p><b>Документы:</b><br>{{ l.docs|replace('\n', '<br>'|safe) }}</p>{% endif %}
+      </details>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{% if not res.results %}
+  <p class="empty">Нет активных кредиторов. <a href="{{ url_for('lenders') }}">Добавьте кредиторов</a>.</p>
+{% endif %}
+{% if ok %}<h2 class="sec ok">Подходят</h2>{% for r in ok %}{{ lender_card(r) }}{% endfor %}{% endif %}
+{% if maybe %}<h2 class="sec maybe">Условно — нужно уточнить или договориться</h2>{% for r in maybe %}{{ lender_card(r) }}{% endfor %}{% endif %}
+{% if no %}
+  <details class="no-block" {{ 'open' if not ok and not maybe }}>
+    <summary><h2 class="sec no">Не подходят ({{ no|length }})</h2></summary>
+    {% for r in no %}{{ lender_card(r) }}{% endfor %}
+  </details>
+{% endif %}
+{% endblock %}

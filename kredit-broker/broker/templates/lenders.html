@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Кредиторы{% endblock %}
+{% block content %}
+<div class="head">
+  <h1>Кредиторы <span class="muted">{{ lenders|length }}</span></h1>
+  <a class="btn primary" href="{{ url_for('lender_edit') }}">+ Добавить кредитора</a>
+</div>
+{% if not lenders %}
+  <p class="empty">Пока пусто. Добавьте первого кредитора и его требования к заёмщику.</p>
+{% else %}
+<table class="list">
+  <thead><tr><th>Кредитор / продукт</th><th>Ставка</th><th>Вознагр.</th><th>Требований</th>
+    <th>Файлы</th><th>Обновлён</th><th></th></tr></thead>
+  <tbody>
+  {% for l in lenders %}
+    <tr class="{{ '' if l.active else 'off' }}">
+      <td><a href="{{ url_for('lender_edit', lid=l.id) }}"><b>{{ l.name }}</b></a>
+        {% if l.product %}<div class="muted">{{ l.product }}</div>{% endif %}</td>
+      <td>{{ l.rate }}</td>
+      <td>{{ l.commission }}</td>
+      <td>{{ l.n_criteria }}</td>
+      <td>{{ l.n_files or '' }}</td>
+      <td class="muted">{{ l.updated_at }}</td>
+      <td class="actions">
+        <form method="post" action="{{ url_for('lender_toggle', lid=l.id) }}">
+          <button class="btn small">{{ 'Отключить' if l.active else 'Включить' }}</button></form>
+        <form method="post" action="{{ url_for('lender_copy', lid=l.id) }}">
+          <button class="btn small" title="Копия — удобно для второго продукта того же кредитора">Копия</button></form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="muted">Отключённые кредиторы не участвуют в подборе. У одного кредитора несколько продуктов —
+  заведите каждый отдельной строкой (кнопка «Копия»).</p>
+{% endif %}
+{% endblock %}
