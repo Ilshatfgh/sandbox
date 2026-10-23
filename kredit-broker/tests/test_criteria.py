@@ -115,3 +115,11 @@ def test_inactive_lender_ignored():
     l = lender("Выкл", amount_max=1e6)
     l["active"] = 0
     assert match([l], client(), [])["results"] == []
+
+
+def test_purposes():
+    tender = lender("Тендер", purposes=["Тендерный заём (обеспечение заявки)"])
+    assert evaluate_lender(tender, client(purpose_type="Пополнение оборотных средств"), [])["status"] == STATUS_NO
+    assert evaluate_lender(tender, client(purpose_type="Тендерный заём (обеспечение заявки)"), [])["status"] == STATUS_OK
+    # Цель не указана — кредитор «условно», а не отсечён
+    assert evaluate_lender(tender, client(), [])["status"] == STATUS_MAYBE

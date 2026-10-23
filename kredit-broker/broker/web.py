@@ -269,8 +269,9 @@ def build_summary(c, check_results, res):
         req += f", залог: {c['collateral_type']}"
     elif c.get("collateral_type") == "Нет":
         req += ", без залога"
-    if c.get("purpose"):
-        req += f", цель: {c['purpose']}"
+    purpose = ", ".join(x for x in (c.get("purpose_type"), c.get("purpose")) if x)
+    if purpose:
+        req += f", цель: {purpose}"
     L.append(req)
     if check_results:
         L.append("")

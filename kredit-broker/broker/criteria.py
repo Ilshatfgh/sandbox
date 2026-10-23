@@ -7,7 +7,7 @@
 import re
 from datetime import date
 
-from .refs import COLLATERAL_TYPES, LEGAL_FORMS, REGIONS, TAX_SYSTEMS
+from .refs import COLLATERAL_TYPES, LEGAL_FORMS, PURPOSES, REGIONS, TAX_SYSTEMS
 
 YES, NO = "yes", "no"
 
@@ -33,7 +33,8 @@ CLIENT_FIELDS = [
     # Запрос
     dict(key="amount", label="Запрашиваемая сумма, ₽", type="money", group="Запрос"),
     dict(key="term_months", label="Срок, мес.", type="number", group="Запрос"),
-    dict(key="purpose", label="Цель", type="text", group="Запрос"),
+    dict(key="purpose_type", label="Цель финансирования", type="choice", options=PURPOSES, group="Запрос"),
+    dict(key="purpose", label="Цель подробнее", type="text", group="Запрос", hint="напр. контракт № / НМЦК"),
     dict(key="collateral_type", label="Залог", type="choice", options=COLLATERAL_TYPES, group="Запрос"),
     dict(key="collateral_value", label="Стоимость залога, ₽", type="money", group="Запрос"),
     dict(key="guarantor", label="Поручительство собственника", type="tri", group="Запрос"),
@@ -97,6 +98,8 @@ LENDER_CRITERIA = [
 
     dict(key="amount_min", label="Сумма от, ₽", kind="min", field="amount", money=True, group="Продукт"),
     dict(key="amount_max", label="Сумма до, ₽", kind="max", field="amount", money=True, group="Продукт"),
+    dict(key="purposes", label="Цели финансирования", kind="in", field="purpose_type", options=PURPOSES,
+         group="Продукт", hint="пусто = любые"),
     dict(key="term_min", label="Срок от, мес.", kind="min", field="term_months", group="Продукт"),
     dict(key="term_max", label="Срок до, мес.", kind="max", field="term_months", group="Продукт"),
 
