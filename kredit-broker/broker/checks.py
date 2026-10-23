@@ -209,6 +209,8 @@ def manual_links(inn):
         ("Rusprofile (сводка)", f"https://www.rusprofile.ru/search?query={inn}"),
         ("Checko (арбитраж, ФССП, финансы)", f"https://checko.ru/search?query={inn}"),
         ("Реестр МСП", "https://rmsp.nalog.ru/search.html"),
+        ("Реестр недобросовестных поставщиков",
+         f"https://zakupki.gov.ru/epz/dishonestsupplier/search/results.html?searchString={inn}"),
     ]
 
 

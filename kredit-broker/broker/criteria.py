@@ -42,6 +42,7 @@ CLIENT_FIELDS = [
     # Риски
     dict(key="overdue_now", label="Текущие просрочки по кредитам", type="tri", group="Риски"),
     dict(key="overdue_max_days", label="Макс. просрочка за год, дней", type="number", group="Риски"),
+    dict(key="loan_payments_month", label="Платежи по кредитам/займам в месяц, ₽", type="money", group="Риски"),
     dict(key="active_loans", label="Действующих кредитов/займов, шт.", type="number", group="Риски"),
     dict(key="tax_debt", label="Долг по налогам, ₽", type="money", group="Риски"),
     dict(key="fssp_sum", label="Исполнительные производства (ФССП), ₽", type="money", group="Риски"),
@@ -119,11 +120,15 @@ LENDER_CRITERIA = [
          field="overdue_max_days", group="Риски"),
     dict(key="active_loans_max", label="Действующих кредитов не более", kind="max", field="active_loans",
          group="Риски"),
+    dict(key="debt_load_max_pct", label="Кредитная нагрузка не более, % от месячной выручки", kind="pct_month",
+         field="loan_payments_month", group="Риски", hint="платежи в месяц / выручка в месяц"),
     dict(key="tax_debt_max", label="Долг по налогам не более, ₽", kind="max", field="tax_debt", money=True,
          group="Риски", hint="0 = недопустим"),
     dict(key="fssp_max", label="ФССП не более, ₽", kind="max", field="fssp_sum", money=True, group="Риски"),
     dict(key="arbitr_max", label="Арбитраж (ответчик) не более, ₽", kind="max",
          field="arbitr_defendant_sum", money=True, group="Риски"),
+    dict(key="arbitr_max_pct", label="Арбитраж (ответчик) не более, % от месячной выручки", kind="pct_month",
+         field="arbitr_defendant_sum", group="Риски"),
     dict(key="no_mass_address", label="Без массового адреса / недостоверности", kind="forbid_yes",
          field="mass_address", group="Риски"),
     dict(key="no_owner_change", label="Без недавней смены собственника", kind="forbid_yes",
@@ -332,6 +337,16 @@ def check_one(c, req, client, lender_criteria):
         limit = cv * req / 100
         return ("pass", "") if amount <= limit else (
             "fail", f"{fmt_money(amount)} > {fmt_num(req)}% от залога ({fmt_money(limit)})")
+    if kind == "pct_month":
+        # База — обороты в месяц, если нет — годовая выручка / 12
+        base = client.get("turnover_month")
+        if base is None and client.get("revenue_year") is not None:
+            base = client["revenue_year"] / 12
+        if not known or base is None:
+            return "unknown", f"≤ {need}% от месячной выручки"
+        limit = base * req / 100
+        return ("pass", "") if cv <= limit else (
+            "fail", f"{have} > {need}% от месячной выручки ({fmt_money(limit)})")
     return "skip", ""
 
 

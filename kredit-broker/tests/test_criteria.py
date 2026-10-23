@@ -123,3 +123,18 @@ def test_purposes():
     assert evaluate_lender(tender, client(purpose_type="Тендерный заём (обеспечение заявки)"), [])["status"] == STATUS_OK
     # Цель не указана — кредитор «условно», а не отсечён
     assert evaluate_lender(tender, client(), [])["status"] == STATUS_MAYBE
+
+
+def test_pct_of_month_revenue():
+    l = lender(debt_load_max_pct=35.0, arbitr_max_pct=25.0)
+    # выручка 60 млн/год = 5 млн/мес: лимит нагрузки 1,75 млн, арбитража 1,25 млн
+    ok = client(loan_payments_month="1,5 млн", arbitr_defendant_sum="1 млн")
+    assert evaluate_lender(l, ok, [])["status"] == STATUS_OK
+    bad = client(loan_payments_month="2 млн", arbitr_defendant_sum="0")
+    r = evaluate_lender(l, bad, [])
+    assert r["status"] == STATUS_NO and "1,75 млн ₽" in r["failed"][0]["msg"]
+    # обороты в месяц приоритетнее годовой выручки
+    assert evaluate_lender(l, client(turnover_month="10 млн", loan_payments_month="2 млн",
+                                     arbitr_defendant_sum="0"), [])["status"] == STATUS_OK
+    assert evaluate_lender(l, client(revenue_year="", arbitr_defendant_sum="0",
+                                     loan_payments_month="1"), [])["status"] == STATUS_MAYBE
