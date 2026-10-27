@@ -49,6 +49,7 @@ def test_parse_table_screenshot():
         ("2026-10-20 15:01", "+79035550011", "Ромашка", "ООО", 1200000),
         ("2026-10-21 09:15", "+79269998877", "Вектор Плюс", "ООО", 3500000),
     ]
+    assert [r["inn"] for r in rows] == ["771234567890", "7701234567", "7809876543"]
 
 
 def test_parse_real_layout():
@@ -59,6 +60,7 @@ def test_parse_real_layout():
         ("2026-10-18 23:36", "+79002223344", "Петрова Анна Сергеевна", "ИП", 1500000),
         ("2026-10-18 23:05", "+79003334455", "Сидоров Олег Игоревич", "ИП", 100000),
     ]
+    assert [r["inn"] for r in rows] == [None, "110402700000", "971500000000"]
 
 
 def test_free_text_fallback():
@@ -66,6 +68,21 @@ def test_free_text_fallback():
     assert len(rows) == 1
     r = rows[0]
     assert (r["phone"], r["org_form"], r["amount"], r["lead_date"]) == ("+79991112233", "ООО", 750000, "2026-10-21")
+    # ИНН: с подписью и без; 10 цифр, начинающиеся с 9, — это телефон, не ИНН
+    assert ocr.parse_free_text("ИП Петров, ИНН: 771234567890, тел. 89991112233")[0]["inn"] == "771234567890"
+    assert ocr.parse_free_text("ООО Луч 9991112233 7701234567")[0]["inn"] == "7701234567"
+    assert ocr.parse_free_text("ООО Луч 9991112233")[0]["inn"] is None
+
+
+def test_inn():
+    assert ocr.norm_inn("7701 234 567") == "7701234567"
+    assert ocr.norm_inn(771234567890) == "771234567890"
+    assert ocr.norm_inn("12345") is None
+    r = ocr.build_row({"phone": "79001112233", "inn": "123"})
+    assert r["inn"] is None and any("ИНН не распознан" in w for w in r["warnings"])
+    # ИНН, прилипший к названию на скрине, не теряется
+    r = ocr.build_row({"phone": "79001112233", "name": "771234567890ИП Иванов Иван Иванович"})
+    assert (r["inn"], r["name"], r["org_form"]) == ("771234567890", "Иванов Иван Иванович", "ИП")
 
 
 @pytest.fixture
@@ -102,7 +119,33 @@ def test_flow(client):
     # 5. Экспорт в Excel
     wb = load_workbook(io.BytesIO(client.get("/api/export.xlsx").content))
     ws = wb.active
-    assert ws.max_row == 4 and ws["A1"].value == "Телефон" and ws["F1"].value == "Статус"
+    assert ws.max_row == 4 and ws["A1"].value == "Телефон" and ws["C1"].value == "ИНН" and ws["G1"].value == "Статус"
+
+
+def test_inn_api(client):
+    """ИНН: сохранение, правка, поиск, экспорт; база старой версии получает колонку ИНН."""
+    client.post("/api/leads/import", json=[{"phone": "79001112233", "name": "Альфа", "inn": "7701 234 567"}])
+    lead = client.get("/api/leads").json()[0]
+    assert lead["inn"] == "7701234567"
+    assert [l["id"] for l in client.get("/api/leads?q=770123").json()] == [lead["id"]]
+    assert client.patch(f"/api/leads/{lead['id']}", json={"inn": "12"}).status_code == 400
+    assert client.patch(f"/api/leads/{lead['id']}", json={"inn": "771234567890"}).json()["inn"] == "771234567890"
+    # Обновление дубля из загрузки дописывает ИНН
+    client.post("/api/leads/import", json=[{"phone": "79001112233", "inn": "7809876543", "action": "update"}])
+    assert client.get("/api/leads").json()[0]["inn"] == "7809876543"
+    ws = load_workbook(io.BytesIO(client.get("/api/export.xlsx").content)).active
+    assert (ws["C1"].value, ws["C2"].value) == ("ИНН", "7809876543")
+
+
+def test_migrate_old_db(tmp_path):
+    path = tmp_path / "old.db"
+    old = sqlite3.connect(path)
+    old.executescript(db.SCHEMA.replace("    inn         TEXT,               -- ИНН: 10 цифр (юрлицо) или 12 (ИП / физлицо)\n", ""))
+    old.execute("INSERT INTO leads (phone, name, created_at, updated_at) VALUES ('+79001112233', 'Старый', '', '')")
+    old.commit(); old.close()
+    con = db.connect(path)
+    assert con.execute("SELECT name, inn FROM leads").fetchone()[:] == ("Старый", None)
+    db.insert_lead(con, {"phone": "+79002223344", "inn": "7701234567"})
 
 
 def test_report_roundtrip(client):
@@ -113,13 +156,13 @@ def test_report_roundtrip(client):
     wb = load_workbook(io.BytesIO(client.get("/api/export.xlsx").content))
     ws = wb.active
     by_phone = {ws.cell(r, 1).value: r for r in range(2, ws.max_row + 1)}
-    ws.cell(by_phone["+79001112233"], 6).value = "Успешно"
-    ws.cell(by_phone["+79002223344"], 6).value = "отказ"            # свободная формулировка
-    ws.cell(by_phone["+79002223344"], 8).value = "Дорого"
-    ws.cell(by_phone["+79003334455"], 6).value = "Перезвонить"      # без даты — ошибка
-    ws.cell(by_phone["+79004445566"], 6).value = "Перезвонить"
-    ws.cell(by_phone["+79004445566"], 7).value = "25.10.2026 15:00"
-    ws.append(["+79990000000", "Нет в базе", None, None, None, "Успешно"])
+    ws.cell(by_phone["+79001112233"], 7).value = "Успешно"
+    ws.cell(by_phone["+79002223344"], 7).value = "отказ"            # свободная формулировка
+    ws.cell(by_phone["+79002223344"], 9).value = "Дорого"
+    ws.cell(by_phone["+79003334455"], 7).value = "Перезвонить"      # без даты — ошибка
+    ws.cell(by_phone["+79004445566"], 7).value = "Перезвонить"
+    ws.cell(by_phone["+79004445566"], 8).value = "25.10.2026 15:00"
+    ws.append(["+79990000000", "Нет в базе", None, None, None, None, "Успешно"])
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
 
     res = client.post("/api/report/parse", files={"file": ("r.xlsx", buf, "application/octet-stream")}).json()["rows"]
@@ -164,6 +207,11 @@ def test_export_selected(client):
     assert [ws.cell(i, 2).value for i in (2, 3)] == ["Лид 3", "Лид 1"] and ws.max_row == 3
 
 
+INNS = {"excel_leads.png": ["410100000001", "710000000002", "4100000003"],
+        "excel_fio.png": ["590800000004", "701700000005", "240100000006"],
+        "telegram_msg.png": ["6600000007"]}  # в сообщении ИНН без подписи — отдельное 10-значное число
+
+
 @pytest.mark.parametrize("fixture,expected", [
     # Выгрузка CRM в Excel: заголовки вплотную, зелёные уголки, ИНН рядом с суммой
     ("excel_leads.png", [("2026-07-05 23:53", "+79001234501", "Смирнова Ольга Петровна", "ИП", 1000000),
@@ -179,6 +227,7 @@ def test_export_selected(client):
 def test_other_formats(fixture, expected):
     rows = ocr.parse_image(Path(__file__).parent / "fixtures" / fixture)
     got = [(r["lead_date"], r["phone"], r["name"], r["org_form"], r["amount"]) for r in rows]
+    assert [r["inn"] for r in rows] == INNS[fixture]
     # дата без года (12.янв) зависит от текущего года — сравниваем окончание
     got = [(g[0][4:] if e[0] and e[0].startswith("-") and g[0] else g[0],) + g[1:] for g, e in zip(got, expected)]
     assert got == expected
@@ -213,6 +262,8 @@ def test_documents():
         ("2026-10-02", "+79001110004", "Белова Анна", None, 750000),
         ("2026-10-03", None, "Без телефона", None, 100000),   # покажется с предупреждением, не сохранится
     ]
+    assert [r["inn"] for r in parse_document("leads.xlsx", open(FIX / "leads.xlsx", "rb"))][:2] == \
+        ["410100000001", "710000000002"]  # колонка «инн лида»
     # CSV из русского Excel: cp1251, «;», телефоны в разной записи
     assert got("leads.csv") == [
         ("2026-10-12", "+79001110005", "Кузнецов Павел Андреевич", "ИП", 2000000),
@@ -230,6 +281,7 @@ def test_excel_without_header():
     """Строки, скопированные из CRM без заголовка: колонки по содержимому (id лидов — не сумма)."""
     from app.files import parse_document
     rows = parse_document("x.xlsx", open(FIX / "leads_noheader.xlsx", "rb"))
+    assert [r["inn"] for r in rows] == [None, "110400000011", "7700000012"]  # ИНН по содержимому
     assert [(r["lead_date"], r["phone"], r["name"], r["org_form"], r["amount"]) for r in rows] == [
         ("2026-10-20 09:48", "+79001110010", None, None, 50000),
         ("2026-10-20 10:05", "+79001110011", "Петров Пётр Петрович", "ИП", 1500000),

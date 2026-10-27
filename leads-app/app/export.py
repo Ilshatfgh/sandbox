@@ -15,7 +15,7 @@ from .db import STATUSES
 
 COLUMNS = [  # (поле, заголовок, ширина, редактируемая)
     ("phone", "Телефон", 16, False), ("name", "Компания / ФИО", 36, False),
-    ("org_form", "Форма", 8, False), ("amount", "Сумма запроса", 15, False),
+    ("inn", "ИНН", 14, False), ("org_form", "Форма", 8, False), ("amount", "Сумма запроса", 15, False),
     ("lead_date", "Дата лида", 17, False),
     ("status", "Статус", 26, True), ("callback_at", "Перезвонить", 17, True),
     ("comment", "Комментарий", 50, True),
@@ -67,15 +67,16 @@ def to_xlsx(leads) -> bytes:
         if not editable:
             for cell in ws[col][1:]:
                 cell.fill = GREY
-    for cell in ws["D"][1:]:
+    letter = {f: get_column_letter(i) for i, (f, *_) in enumerate(COLUMNS, 1)}  # поле -> буква колонки
+    for cell in ws[letter["amount"]][1:]:
         cell.number_format = "# ##0"
-    for cell in ws["G"][1:]:
+    for cell in ws[letter["callback_at"]][1:]:
         cell.number_format = "DD.MM.YYYY HH:MM"
     # Выпадающий список статусов (с запасом строк для дописанных вручную)
     dv = DataValidation(type="list", formula1='"' + ",".join(STATUSES) + '"', allow_blank=True)
     dv.error, dv.errorTitle = "Выберите статус из списка", "Неверный статус"
     ws.add_data_validation(dv)
-    dv.add(f"F2:F{max(n, 2) + 500}")
+    dv.add(f"{letter['status']}2:{letter['status']}{max(n, 2) + 500}")
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = f"A1:{get_column_letter(len(COLUMNS))}{n}"
     buf = BytesIO()

@@ -28,6 +28,7 @@ HEADER_SYNONYMS = [
     ("lead_date", ["дата", "date", "создан"]),
     ("org_form", ["форма", "опф", "орг.форма"]),
     ("amount", ["запрошенная", "сумма", "сумм", "amount"]),
+    ("inn", ["инн", "inn"]),
     ("name", ["компания", "фио", "клиент", "наименование", "название", "контрагент", "имя", "name"]),
 ]
 
@@ -140,6 +141,14 @@ def norm_amount(text):
     s = re.split(r"[.,]\d{1,2}\b", s)[0]  # отбрасываем копейки
     d = re.sub(r"\D", "", s)
     return int(d) if d else None
+
+
+def norm_inn(text):
+    """ИНН -> строка из 10 (юрлицо) или 12 (ИП / физлицо) цифр. None, если цифр другое число."""
+    if text is None:
+        return None
+    d = re.sub(r"\D", "", str(text))
+    return d if len(d) in (10, 12) else None
 
 
 EMPTY = {"null", "none", "nan", "-", "—", "–"}
@@ -421,13 +430,18 @@ def build_row(raw, min_conf=100.0):
     """Сырые строки ячеек -> нормализованная запись + предупреждения для оператора."""
     raw = {k: clean(v) for k, v in raw.items()}
     name = raw.get("name")
+    stuck_inn = None
     if name:  # к названию может прилипнуть соседний ИНН или кавычка-уголок: «771234567890ИП Иванов»
-        name = re.sub(r"^[\d\s\"'”“„.,-]{5,}", "", name) or None
+        m = re.match(r"^[\d\s\"'”“„.,-]{5,}", name)
+        if m:
+            stuck_inn = norm_inn(m.group())  # прилипший ИНН не теряем
+            name = name[m.end():] or None
     org, bad_org = guess_org_form(raw.get("org_form"), name)
     row = {
         "lead_date": norm_date(raw.get("lead_date")),
         "phone": norm_phone(raw.get("phone")),
         "name": strip_org_form(name, org),
+        "inn": norm_inn(raw.get("inn")) or stuck_inn,
         "org_form": org,
         "amount": norm_amount(raw.get("amount")),
     }
@@ -437,6 +451,8 @@ def build_row(raw, min_conf=100.0):
                         else "Нет телефона — строка не будет сохранена")
     if not row["name"]:
         warnings.append("Нет названия компании / ФИО")
+    if raw.get("inn") and not row["inn"]:
+        warnings.append(f"ИНН не распознан: «{raw['inn']}» (нужно 10 или 12 цифр)")
     if bad_org:
         warnings.append(f"Непонятная форма организации: «{bad_org}»")
     if row["lead_date"] and not re.match(r"^\d{4}-\d{2}-\d{2}", row["lead_date"]):
@@ -453,6 +469,8 @@ ORG_RE = re.compile(r"\b(ИП|ООО|АО|ПАО|ЗАО)\b\s+([«\"]?[^\n,;]{2,6
 
 
 FIO_RE = re.compile(r"\b([А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+){1,2})\b")
+INN_RE = re.compile(r"(?<!\d)(\d{12}|\d{10})(?!\d)")
+INN_LABEL_RE = re.compile(r"ИНН\D{0,5}(\d{12}|\d{10})(?!\d)", re.I)
 DATE_RE = re.compile(r"\b(\d{2}\.\d{2}\.\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}[.\s][а-яё]{3,}\.?)", re.I)
 
 
@@ -461,8 +479,12 @@ def free_text_row(text, phone):
     org = ORG_RE.search(text)
     fio = None if org else FIO_RE.search(text)
     date = DATE_RE.search(text)
+    # ИНН: после слова «ИНН», иначе отдельное число из 10/12 цифр, которое не сам телефон
+    inn = INN_LABEL_RE.search(text) or next(
+        (m for m in INN_RE.finditer(text) if norm_phone(m.group()) != phone), None)
     row = build_row({
         "phone": phone,
+        "inn": inn.group(1) if inn else None,
         "amount": amount.group(1) if amount else None,
         "org_form": org.group(1) if org else None,
         "name": org.group(2).strip() if org else (fio.group(1) if fio else None),

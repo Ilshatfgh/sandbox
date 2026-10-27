@@ -13,7 +13,7 @@ DB_PATH = DATA_DIR / "leads.db"
 STATUSES = ["Новый", "В работе", "Перезвонить", "Успешно", "Отказ клиента", "Не проходит по критериям"]
 
 # Поля, которые можно менять через API (защита от записи в произвольные колонки)
-EDITABLE = {"lead_date", "phone", "name", "org_form", "amount", "status", "callback_at", "comment"}
+EDITABLE = {"lead_date", "phone", "name", "inn", "org_form", "amount", "status", "callback_at", "comment"}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS leads (
@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS leads (
     lead_date   TEXT,               -- дата лида, ISO: 2026-10-20 или 2026-10-20 14:32
     phone       TEXT NOT NULL UNIQUE, -- нормализованный +7XXXXXXXXXX, ключ для поиска дублей
     name        TEXT,               -- компания или ФИО
+    inn         TEXT,               -- ИНН: 10 цифр (юрлицо) или 12 (ИП / физлицо)
     org_form    TEXT,               -- ИП / ООО / ...
     amount      INTEGER,            -- запрошенная сумма, руб.
     status      TEXT NOT NULL DEFAULT 'Новый',
@@ -42,7 +43,16 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     con = sqlite3.connect(path, check_same_thread=False)
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
+    migrate(con)
     return con
+
+
+def migrate(con):
+    """Базы прошлых версий: добавляем недостающие колонки, данные не трогаем."""
+    cols = {r["name"] for r in con.execute("PRAGMA table_info(leads)")}
+    if "inn" not in cols:
+        con.execute("ALTER TABLE leads ADD COLUMN inn TEXT")
+        con.commit()
 
 
 def list_leads(con, status=None, q=None, callback_due=False):
@@ -52,10 +62,10 @@ def list_leads(con, status=None, q=None, callback_due=False):
         sql += " AND status = ?"
         args.append(status)
     if q:
-        # Поиск по имени и по цифрам телефона
-        sql += " AND (name LIKE ? OR phone LIKE ?)"
+        # Поиск по имени, по цифрам телефона и ИНН
+        sql += " AND (name LIKE ? OR phone LIKE ? OR inn LIKE ?)"
         digits = "".join(c for c in q if c.isdigit())
-        args += [f"%{q}%", f"%{digits}%" if digits else f"%{q}%"]
+        args += [f"%{q}%"] + [f"%{digits}%" if digits else f"%{q}%"] * 2
     if callback_due:
         sql += " AND status = 'Перезвонить' AND callback_at IS NOT NULL AND date(callback_at) <= date('now','localtime')"
     sql += " ORDER BY COALESCE(lead_date, created_at) DESC, id DESC"
@@ -76,9 +86,9 @@ def find_by_phones(con, phones):
 def insert_lead(con, row):
     ts = now()
     cur = con.execute(
-        "INSERT INTO leads (lead_date, phone, name, org_form, amount, status, created_at, updated_at)"
-        " VALUES (?,?,?,?,?,?,?,?)",
-        (row.get("lead_date"), row["phone"], row.get("name"), row.get("org_form"),
+        "INSERT INTO leads (lead_date, phone, name, inn, org_form, amount, status, created_at, updated_at)"
+        " VALUES (?,?,?,?,?,?,?,?,?)",
+        (row.get("lead_date"), row["phone"], row.get("name"), row.get("inn"), row.get("org_form"),
          row.get("amount"), row.get("status") or "Новый", ts, ts),
     )
     return cur.lastrowid

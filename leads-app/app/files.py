@@ -19,7 +19,7 @@ HEADER_SCAN_ROWS = 30  # строка заголовка ищется среди
 
 # Заголовок ячейки может быть длиннее, чем на скрине: «Номер телефона», «Сумма кредита»
 CONTAINS = [("phone", ["телефон", "phone"]), ("lead_date", ["дата"]), ("org_form", ["опф", "форма"]),
-            ("amount", ["сумм"]), ("name", ["фио", "компан", "наименован", "клиент", "контрагент"])]
+            ("amount", ["сумм"]), ("inn", ["инн"]), ("name", ["фио", "компан", "наименован", "клиент", "контрагент"])]
 
 
 def cell_text(v):
@@ -92,6 +92,12 @@ def is_date(v):
     return isinstance(v, (datetime, date)) or bool(re.match(r"^\d{4}-\d{2}-\d{2}", ocr.norm_date(cell_text(v)) or ""))
 
 
+def is_inn(v):
+    """ИНН: только цифры, 10 или 12 штук, и не похоже на телефон."""
+    t = re.sub(r"\s", "", cell_text(v))
+    return t.isdigit() and len(t) in (10, 12) and not is_phone(t)
+
+
 def is_phone(v):
     d = re.sub(r"\D", "", cell_text(v))
     return len(d) in (10, 11) and bool(ocr.norm_phone(d)) and (len(d) == 11 or d[0] == "9")
@@ -115,7 +121,7 @@ def rows_by_content(grid):
     cols = {"phone": best(is_phone)}
     if cols["phone"] is None:
         return None
-    for f, test in (("lead_date", is_date), ("amount", is_amount), ("name", is_name),
+    for f, test in (("lead_date", is_date), ("inn", is_inn), ("amount", is_amount), ("name", is_name),
                     ("org_form", lambda v: ocr.norm_org_form(cell_text(v)) in ocr.ORG_FORMS and len(cell_text(v)) <= 5)):
         c = best(test, exclude=set(cols.values()))
         if c is not None:

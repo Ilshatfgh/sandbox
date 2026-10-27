@@ -45,6 +45,7 @@ const COLS = [
   { f: "lead_date", title: "Дата лида", key: leadDay, label: ruDate, sort: "desc" },
   { f: "phone", title: "Телефон" },
   { f: "name", title: "Компания / ФИО" },
+  { f: "inn", title: "ИНН" },
   { f: "org_form", title: "Форма" },
   { f: "amount", title: "Сумма", num: true, label: fmtAmount, sort: "num" },
   { f: "status", title: "Статус", sort: "status" },
@@ -60,7 +61,7 @@ function applyFilters(skip = null) {
   const today = ymd(new Date());
   return ALL.filter((l) => {
     if (range.from) { const d = leadDay(l); if (d < range.from || d > range.to) return false; }
-    if (q && !((l.name || "").toLowerCase().includes(q) || (qd && l.phone.includes(qd)))) return false;
+    if (q && !((l.name || "").toLowerCase().includes(q) || (qd && (l.phone.includes(qd) || (l.inn || "").includes(qd))))) return false;
     if ($("#fDue").checked && !(l.status === "Перезвонить" && l.callback_at && l.callback_at.slice(0, 10) <= today)) return false;
     for (const c of COLS) {
       if (c.f === skip || !colFilters[c.f]) continue;
@@ -96,6 +97,7 @@ function render() {
       <td contenteditable data-f="lead_date">${esc(l.lead_date)}</td>
       <td contenteditable data-f="phone">${esc(l.phone)}</td>
       <td contenteditable data-f="name">${esc(l.name)}</td>
+      <td contenteditable data-f="inn">${esc(l.inn)}</td>
       <td><select data-f="org_form"><option></option>${options(META.org_forms, l.org_form)}</select></td>
       <td contenteditable data-f="amount" class="num">${fmtAmount(l.amount)}</td>
       <td><select data-f="status">${options(META.statuses, l.status)}</select></td>
@@ -348,6 +350,7 @@ function renderReview() {
       <td contenteditable data-f="lead_date">${esc(r.lead_date)}</td>
       <td contenteditable data-f="phone">${esc(r.phone)}</td>
       <td contenteditable data-f="name">${esc(r.name)}</td>
+      <td contenteditable data-f="inn">${esc(r.inn)}</td>
       <td><select data-f="org_form"><option></option>${options(META.org_forms, r.org_form)}</select></td>
       <td contenteditable data-f="amount" class="num">${fmtAmount(r.amount)}</td>
       <td class="muted small">${esc(r.source)}</td>
@@ -368,8 +371,8 @@ $("#saveBtn").onclick = async () => {
   try {
     const res = await api("/api/leads/import", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(reviewRows.map(({ lead_date, phone, name, org_form, amount, action }) =>
-        ({ lead_date, phone: phone || "", name, org_form, amount, action }))),
+      body: JSON.stringify(reviewRows.map(({ lead_date, phone, name, inn, org_form, amount, action }) =>
+        ({ lead_date, phone: phone || "", name, inn, org_form, amount, action }))),
     });
     toast(`Добавлено: ${res.added}, обновлено: ${res.updated}, пропущено: ${res.skipped}` + (res.errors.length ? `. Ошибки: ${res.errors.join("; ")}` : ""), res.errors.length > 0);
     reviewRows = []; renderReview(); $("#parseInfo").textContent = "";

@@ -31,6 +31,7 @@ class LeadIn(BaseModel):
     lead_date: str | None = None
     phone: str
     name: str | None = None
+    inn: str | None = None
     org_form: str | None = None
     amount: int | None = None
     action: str = "add"  # add — новый; update — обновить существующий дубль; skip — пропустить
@@ -40,6 +41,7 @@ class LeadPatch(BaseModel):
     lead_date: str | None = None
     phone: str | None = None
     name: str | None = None
+    inn: str | None = None
     org_form: str | None = None
     amount: int | None = None
     status: str | None = None
@@ -123,7 +125,7 @@ def import_leads(rows: list[LeadIn]):
         if not phone:
             errors.append(f"Некорректный телефон: {r.phone}")
             continue
-        data = r.model_dump(exclude={"action"}) | {"phone": phone}
+        data = r.model_dump(exclude={"action"}) | {"phone": phone, "inn": ocr.norm_inn(r.inn) or r.inn}
         found = db.find_by_phones(con, [phone]).get(phone)
         if found:
             if r.action == "update":
@@ -152,6 +154,10 @@ def patch_lead(lead_id: int, patch: LeadPatch):
         fields["phone"] = ocr.norm_phone(fields["phone"])
         if not fields["phone"]:
             raise HTTPException(400, "Некорректный телефон")
+    if fields.get("inn"):
+        fields["inn"] = ocr.norm_inn(fields["inn"])
+        if not fields["inn"]:
+            raise HTTPException(400, "ИНН — 10 или 12 цифр")
     try:
         db.update_lead(con, lead_id, fields)
         con.commit()
