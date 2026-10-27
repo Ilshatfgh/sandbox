@@ -430,6 +430,10 @@ def build_row(raw, min_conf=100.0):
     """Сырые строки ячеек -> нормализованная запись + предупреждения для оператора."""
     raw = {k: clean(v) for k, v in raw.items()}
     name = raw.get("name")
+    glued = re.fullmatch(r"(\d{12}|\d{10})([^\d\s]+)", raw.get("inn") or "")
+    if glued:  # OCR склеил ИНН с началом названия в одно слово: «771234567890ИП» — хвост возвращаем в название
+        raw["inn"] = glued.group(1)
+        name = f"{glued.group(2)} {name or ''}".strip()
     stuck_inn = None
     if name:  # к названию может прилипнуть соседний ИНН или кавычка-уголок: «771234567890ИП Иванов»
         m = re.match(r"^[\d\s\"'”“„.,-]{5,}", name)
