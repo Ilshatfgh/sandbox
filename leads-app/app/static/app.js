@@ -336,6 +336,8 @@ async function parseFiles(files) {
   } catch (e) { $("#parseInfo").textContent = ""; toast(e.message, true); }
 }
 
+const FIELD_TITLES = { lead_date: "дата", name: "компания / ФИО", inn: "ИНН", org_form: "форма", amount: "сумма" };
+
 function renderReview() {
   $("#review").hidden = reviewRows.length === 0;
   $("#reviewBody").innerHTML = reviewRows.map((r, i) => {
@@ -343,9 +345,13 @@ function renderReview() {
     if (r.dup_lead) notes.unshift(`Уже в базе: ${r.dup_lead.name || ""} (${r.dup_lead.status})`);
     if (r.dup_in_batch) notes.unshift("Повтор в этой загрузке");
     // По умолчанию: дубль пропускаем, новый добавляем
-    const action = r.action || (r.dup_lead || r.dup_in_batch || !r.phone ? "skip" : "add"); // без телефона — не сохраняем
+    // Дубль, который даёт новые данные (например, ИНН) — по умолчанию дополняем пустые поля в базе
+    const canFill = r.dup_lead && !r.dup_in_batch && (r.fills || []).length > 0;
+    if (canFill) notes.unshift(`Дополнит в базе: ${r.fills.map((f) => FIELD_TITLES[f] || f).join(", ")}`);
+    const action = r.action || (canFill ? "fill" : r.dup_lead || r.dup_in_batch || !r.phone ? "skip" : "add"); // без телефона — не сохраняем
     r.action = action;
-    const acts = [["add", "Добавить"], ["skip", "Пропустить"]].concat(r.dup_lead ? [["update", "Обновить в базе"]] : []);
+    const acts = [["add", "Добавить"], ["skip", "Пропустить"]]
+      .concat(r.dup_lead ? [["fill", "Дополнить пустые поля"], ["update", "Обновить в базе"]] : []);
     return `<tr data-i="${i}" class="${notes.length ? "warn" : ""}">
       <td contenteditable data-f="lead_date">${esc(r.lead_date)}</td>
       <td contenteditable data-f="phone">${esc(r.phone)}</td>
@@ -374,7 +380,7 @@ $("#saveBtn").onclick = async () => {
       body: JSON.stringify(reviewRows.map(({ lead_date, phone, name, inn, org_form, amount, action }) =>
         ({ lead_date, phone: phone || "", name, inn, org_form, amount, action }))),
     });
-    toast(`Добавлено: ${res.added}, обновлено: ${res.updated}, пропущено: ${res.skipped}` + (res.errors.length ? `. Ошибки: ${res.errors.join("; ")}` : ""), res.errors.length > 0);
+    toast(`Добавлено: ${res.added}, обновлено: ${res.updated}, дополнено: ${res.filled}, пропущено: ${res.skipped}` + (res.errors.length ? `. Ошибки: ${res.errors.join("; ")}` : ""), res.errors.length > 0);
     reviewRows = []; renderReview(); $("#parseInfo").textContent = "";
     loadMeta();
   } catch (e) { toast(e.message, true); }

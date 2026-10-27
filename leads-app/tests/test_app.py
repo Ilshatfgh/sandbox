@@ -109,7 +109,7 @@ def test_flow(client):
     with open(FIXTURE, "rb") as f:
         res2 = client.post("/api/parse", files=[("files", ("a.png", f, "image/png"))]).json()
     assert all(r["dup_lead"] for r in res2["rows"])
-    assert client.post("/api/leads/import", json=rows).json() == {"added": 0, "updated": 0, "skipped": 3, "errors": []}
+    assert client.post("/api/leads/import", json=rows).json() == {"added": 0, "updated": 0, "filled": 0, "skipped": 3, "errors": []}
 
     # 4. Статусы: «Перезвонить» без даты нельзя, с датой можно
     lead = client.get("/api/leads").json()[0]
@@ -138,6 +138,23 @@ def test_inn_api(client):
     assert client.get("/api/leads").json()[0]["inn"] == "7809876543"
     ws = load_workbook(io.BytesIO(client.get("/api/export.xlsx").content)).active
     assert (ws["C1"].value, ws["C2"].value) == ("ИНН", "7809876543")
+
+
+def test_fill_inn_for_old_leads(client):
+    """Лиды из старой версии без ИНН: повторная загрузка того же Excel дополняет пустые поля, остальное не трогает."""
+    client.post("/api/leads/import", json=[{"phone": "79001110001", "name": "Смирнова (правлено)", "amount": 5}])
+    lead = client.get("/api/leads").json()[0]
+    client.patch(f"/api/leads/{lead['id']}", json={"status": "В работе", "comment": "звонил"})
+    with open(FIX / "leads.xlsx", "rb") as f:
+        rows = client.post("/api/parse", files=[("files", ("leads.xlsx", f, "application/octet-stream"))]).json()["rows"]
+    dup = next(r for r in rows if r["phone"] == "+79001110001")
+    assert dup["fills"] == ["inn", "lead_date", "org_form"]  # имя и сумма в базе уже есть
+    keys = ("lead_date", "phone", "name", "inn", "org_form", "amount")
+    res = client.post("/api/leads/import", json=[{**{k: dup[k] for k in keys}, "action": "fill"}]).json()
+    assert res["filled"] == 1
+    lead = client.get("/api/leads").json()[0]
+    assert (lead["inn"], lead["org_form"], lead["name"], lead["amount"], lead["status"], lead["comment"]) == \
+        ("410100000001", "ИП", "Смирнова (правлено)", 5, "В работе", "звонил")
 
 
 def test_migrate_old_db(tmp_path):

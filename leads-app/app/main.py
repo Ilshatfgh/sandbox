@@ -34,7 +34,7 @@ class LeadIn(BaseModel):
     inn: str | None = None
     org_form: str | None = None
     amount: int | None = None
-    action: str = "add"  # add — новый; update — обновить существующий дубль; skip — пропустить
+    action: str = "add"  # add — новый; update — обновить дубль; fill — дополнить пустые поля дубля; skip — пропустить
 
 
 class LeadPatch(BaseModel):
@@ -108,6 +108,8 @@ def mark_duplicates(rows):
     seen = set()
     for r in rows:
         r["dup_lead"] = existing.get(r["phone"])
+        # Чем загрузка дополнит лид из базы (например, ИНН, которого не было в старых версиях)
+        r["fills"] = sorted(fill_fields(r["dup_lead"], r)) if r["dup_lead"] else []
         r["dup_in_batch"] = bool(r["phone"]) and r["phone"] in seen
         seen.add(r["phone"])
 
@@ -115,7 +117,7 @@ def mark_duplicates(rows):
 @app.post("/api/leads/import")
 def import_leads(rows: list[LeadIn]):
     """Сохранить проверенные оператором строки."""
-    added = updated = skipped = 0
+    added = updated = filled = skipped = 0
     errors = []
     for r in rows:
         phone = ocr.norm_phone(r.phone)
@@ -132,13 +134,23 @@ def import_leads(rows: list[LeadIn]):
                 # Обновляем только данные лида, статус и комментарий не трогаем
                 db.update_lead(con, found["id"], {k: v for k, v in data.items() if v not in (None, "")})
                 updated += 1
+            elif r.action == "fill":
+                # Только пустые поля в базе (ИНН, сумма…) — то, что старые версии не сохраняли
+                db.update_lead(con, found["id"], fill_fields(found, data))
+                filled += 1
             else:
                 skipped += 1  # дубль, а оператор не выбрал «обновить»
         else:
             db.insert_lead(con, data)
             added += 1
     con.commit()
-    return {"added": added, "updated": updated, "skipped": skipped, "errors": errors}
+    return {"added": added, "updated": updated, "filled": filled, "skipped": skipped, "errors": errors}
+
+
+def fill_fields(lead, data):
+    """Поля загрузки (данные лида, без телефона), которые в лиде из базы пустые."""
+    fields = LeadIn.model_fields.keys() - {"phone", "action"}
+    return {k: data[k] for k in fields if data.get(k) not in (None, "") and lead.get(k) in (None, "")}
 
 
 @app.patch("/api/leads/{lead_id}")
